@@ -1,0 +1,25 @@
+version: '3'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - SECRET_KEY=your-super-secret-key-change-this-in-production
+      - DATABASE_URL=sqlite:///./data/ticket_system.db
+    depends_on:
+      - init-db
+    restart: always
+
+  init-db:
+    build: .
+    volumes:
+      - ./data:/app/data
+    environment:
+      - SECRET_KEY=your-super-secret-key-change-this-in-production
+      - DATABASE_URL=sqlite:///./data/ticket_system.db
+    command: python init_database.py
+    restart: "no" 
