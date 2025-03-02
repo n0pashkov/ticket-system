@@ -15,8 +15,8 @@ class Comment(Base):
     
     # Внешние ключи
     ticket_id = Column(Integer, ForeignKey("tickets.id", ondelete="CASCADE"), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    author_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     
     # Отношения
     ticket = relationship("Ticket", back_populates="comments")
-    user = relationship("User", back_populates="comments") 
+    author = relationship("User", back_populates="comments") 
