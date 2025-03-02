@@ -44,7 +44,7 @@ class TicketCreate(TicketBase):
 class TicketUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
-    priority: Optional[str] = None
+    priority: Optional[int] = None
     status: Optional[str] = None
     category: Optional[str] = None
     assigned_to_id: Optional[int] = None
