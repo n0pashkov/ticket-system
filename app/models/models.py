@@ -104,6 +104,7 @@ class Ticket(Base):
     description = Column(Text)
     status = Column(String, default=TicketStatus.NEW)
     priority = Column(String, default="medium")  # low, medium, high
+    resolution = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     

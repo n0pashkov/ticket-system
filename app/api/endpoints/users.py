@@ -75,17 +75,21 @@ def read_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    # Обычные пользователи могут видеть только свой профиль
-    if current_user.role == UserRole.USER and current_user.id != user_id:
+    """
+    Получение информации о пользователе по ID
+    Только администраторы могут просматривать информацию о пользователях
+    """
+    # Проверяем, что текущий пользователь имеет права администратора
+    if current_user.role != UserRole.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Нет прав для просмотра данного профиля"
+            detail="Нет прав для просмотра данного пользователя"
         )
     
-    db_user = db.query(User).filter(User.id == user_id).first()
-    if db_user is None:
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
-    return db_user
+    return user
 
 
 # Обновление пользователя
@@ -96,30 +100,28 @@ def update_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    # Проверяем права доступа
-    if current_user.role != UserRole.ADMIN and current_user.id != user_id:
+    """
+    Обновление данных пользователя
+    Только администраторы могут обновлять данные пользователей
+    """
+    # Проверяем, что текущий пользователь имеет права администратора
+    if current_user.role != UserRole.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Нет прав для изменения данного профиля"
+            detail="Нет прав для обновления данного пользователя"
         )
     
-    # Получаем пользователя из БД
     db_user = db.query(User).filter(User.id == user_id).first()
     if db_user is None:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
     
     # Обновляем данные пользователя
-    user_data = user.dict(exclude_unset=True)
-    
-    # Для обычных пользователей запрещаем менять роль
-    if current_user.role != UserRole.ADMIN and "role" in user_data:
-        del user_data["role"]
+    user_data = user.model_dump(exclude_unset=True)
     
     # Если передан пароль, хешируем его
     if "password" in user_data:
         user_data["hashed_password"] = get_password_hash(user_data.pop("password"))
     
-    # Обновляем все поля
     for key, value in user_data.items():
         setattr(db_user, key, value)
     
@@ -128,7 +130,7 @@ def update_user(
     return db_user
 
 
-# Деактивация пользователя (только для администраторов)
+# Удаление пользователя (только для администраторов)
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 def deactivate_user(
     user_id: int,
@@ -139,13 +141,14 @@ def deactivate_user(
     if db_user is None:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
     
-    # Запрещаем деактивировать самого себя
+    # Запрещаем удалять самого себя
     if db_user.id == current_user.id:
         raise HTTPException(
             status_code=400,
-            detail="Нельзя деактивировать собственный аккаунт"
+            detail="Нельзя удалить собственный аккаунт"
         )
     
-    db_user.is_active = False
+    # Удаляем пользователя полностью
+    db.delete(db_user)
     db.commit()
     return None 

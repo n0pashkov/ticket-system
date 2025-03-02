@@ -51,13 +51,7 @@ def read_tickets(
     if current_user.role == UserRole.USER:
         # Обычный пользователь видит только свои заявки
         query = query.filter(Ticket.creator_id == current_user.id)
-    elif current_user.role == UserRole.AGENT:
-        # Агент видит назначенные на него заявки и свои созданные
-        query = query.filter(
-            (Ticket.assigned_to_id == current_user.id) | 
-            (Ticket.creator_id == current_user.id)
-        )
-    # Администратор видит все заявки
+    # Агенты и администраторы видят все заявки
     
     # Выполняем запрос с пагинацией
     tickets = query.options(
@@ -86,13 +80,7 @@ def read_ticket(
             detail="Нет прав для просмотра данной заявки"
         )
     
-    if (current_user.role == UserRole.AGENT and 
-        ticket.creator_id != current_user.id and 
-        ticket.assigned_to_id != current_user.id):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Нет прав для просмотра данной заявки"
-        )
+    # Агенты и администраторы могут просматривать все заявки
     
     return ticket
 
@@ -120,27 +108,21 @@ def update_ticket(
             )
         
         # Убираем поля, которые пользователь не может изменять
-        ticket_data = ticket_update.dict(exclude_unset=True)
+        ticket_data = ticket_update.model_dump(exclude_unset=True)
         if "status" in ticket_data:
             del ticket_data["status"]
         if "assigned_to_id" in ticket_data:
             del ticket_data["assigned_to_id"]
-            
-    elif current_user.role == UserRole.AGENT:
-        # Агент может изменять только назначенные на него заявки или свои
-        if db_ticket.assigned_to_id != current_user.id and db_ticket.creator_id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Нет прав для изменения данной заявки"
-            )
-        ticket_data = ticket_update.dict(exclude_unset=True)
-    else:
-        # Администратор может менять любую заявку
-        ticket_data = ticket_update.dict(exclude_unset=True)
+        
+        # Обновляем заявку
+        for key, value in ticket_data.items():
+            setattr(db_ticket, key, value)
     
-    # Обновляем все разрешенные поля
-    for key, value in ticket_data.items():
-        setattr(db_ticket, key, value)
+    elif current_user.role in [UserRole.AGENT, UserRole.ADMIN]:
+        # Агенты и администраторы могут обновлять любые заявки без ограничений
+        ticket_data = ticket_update.model_dump(exclude_unset=True)
+        for key, value in ticket_data.items():
+            setattr(db_ticket, key, value)
     
     db.commit()
     db.refresh(db_ticket)
@@ -328,16 +310,10 @@ def close_ticket(
             detail="Нет прав для закрытия данной заявки"
         )
     
-    if (current_user.role == UserRole.AGENT and 
-        db_ticket.creator_id != current_user.id and 
-        db_ticket.assigned_to_id != current_user.id):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Нет прав для закрытия данной заявки"
-        )
+    # Агенты и администраторы могут закрывать любые заявки
     
     # Меняем статус
-    db_ticket.status = TicketStatus.COMPLETED
+    db_ticket.status = "closed"
     
     db.commit()
     db.refresh(db_ticket)
@@ -363,17 +339,11 @@ def reopen_ticket(
             detail="Нет прав для повторного открытия данной заявки"
         )
     
-    if (current_user.role == UserRole.AGENT and 
-        db_ticket.creator_id != current_user.id and 
-        db_ticket.assigned_to_id != current_user.id):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Нет прав для повторного открытия данной заявки"
-        )
+    # Агенты и администраторы могут повторно открывать любые заявки
     
     # Меняем статус
-    if db_ticket.status == TicketStatus.COMPLETED or db_ticket.status == TicketStatus.CANCELLED:
-        db_ticket.status = TicketStatus.IN_PROGRESS if db_ticket.assigned_to_id else TicketStatus.NEW
+    if db_ticket.status == TicketStatus.COMPLETED or db_ticket.status == TicketStatus.CANCELLED or db_ticket.status == "closed":
+        db_ticket.status = "reopened"
     
     db.commit()
     db.refresh(db_ticket)

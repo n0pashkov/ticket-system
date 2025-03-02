@@ -1,6 +1,7 @@
 from typing import List, Optional, Dict, Any
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
+from enum import Enum
 
 from app.models.models import UserRole, TicketStatus
 
@@ -22,8 +23,7 @@ class Comment(CommentBase):
     ticket_id: int
     created_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Базовая схема для заявки
@@ -31,6 +31,8 @@ class TicketBase(BaseModel):
     title: str
     description: str
     priority: str = "medium"
+    category: Optional[str] = None
+    equipment_id: Optional[int] = None
 
 
 # Схема для создания заявки
@@ -42,9 +44,12 @@ class TicketCreate(TicketBase):
 class TicketUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
-    status: Optional[str] = None
     priority: Optional[str] = None
+    status: Optional[str] = None
+    category: Optional[str] = None
     assigned_to_id: Optional[int] = None
+    equipment_id: Optional[int] = None
+    resolution: Optional[str] = None
 
 
 # Схема для отображения заявки
@@ -55,10 +60,10 @@ class Ticket(TicketBase):
     updated_at: Optional[datetime] = None
     creator_id: int
     assigned_to_id: Optional[int] = None
+    resolution: Optional[str] = None
     comments: List[Comment] = []
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Базовая схема для пользователя
@@ -90,8 +95,7 @@ class User(UserBase):
     is_active: bool
     tickets: Optional[List[Ticket]] = []
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Схема для ответа эндпоинта /me
@@ -103,8 +107,7 @@ class UserMe(BaseModel):
     role: str
     is_active: bool
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Схема для токена доступа
@@ -136,8 +139,7 @@ class Notification(NotificationBase):
     is_read: bool = False
     user_id: int
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Схемы для вложений
@@ -163,8 +165,7 @@ class Attachment(AttachmentBase):
     uploaded_by: int
     uploaded_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Схемы для оборудования
@@ -214,9 +215,7 @@ class Equipment(EquipmentBase):
     def category(self) -> Optional[str]:
         return self.type
 
-    class Config:
-        orm_mode = True
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Схемы для технического обслуживания оборудования
@@ -241,9 +240,7 @@ class Maintenance(MaintenanceBase):
     def maintenance_type(self) -> Optional[str]:
         return self.action_type
 
-    class Config:
-        orm_mode = True
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Схемы для статистики

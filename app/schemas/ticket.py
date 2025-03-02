@@ -1,6 +1,6 @@
 from typing import Optional, List
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class TicketBase(BaseModel):
@@ -35,5 +35,4 @@ class TicketResponse(TicketBase):
     user_id: int
     assigned_to: Optional[int] = None
     
-    class Config:
-        orm_mode = True 
+    model_config = ConfigDict(from_attributes=True) 
