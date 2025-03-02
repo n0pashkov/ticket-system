@@ -20,7 +20,6 @@ lib64/
 parts/
 sdist/
 var/
-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
@@ -35,23 +34,26 @@ ENV/
 *.swp
 *.swo
 
-# Local development
-data/
+# Docker
+.dockerignore
+Dockerfile
+docker-compose.yml
+
+# Database
 *.db
 *.sqlite3
+
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
 
 # Logs
 logs/
 *.log
 
-# Docker
-Dockerfile
-docker-compose.yml
-.dockerignore
-
 # Test-related
 tests/
-.pytest_cache/
 *test*.py
 run_tests.py
 

@@ -1,25 +1,29 @@
-version: '3'
+version: '3.8'
 
 services:
-  app:
+  web:
     build: .
     ports:
       - "8000:8000"
-    volumes:
-      - ./data:/app/data
     environment:
-      - SECRET_KEY=your-super-secret-key-change-this-in-production
-      - DATABASE_URL=sqlite:///./data/ticket_system.db
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/ticket_system
+      - SECRET_KEY=your_secret_key_here
     depends_on:
-      - init-db
-    restart: always
-
-  init-db:
-    build: .
+      - db
     volumes:
-      - ./data:/app/data
+      - ./app:/app/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  db:
+    image: postgres:13
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
     environment:
-      - SECRET_KEY=your-super-secret-key-change-this-in-production
-      - DATABASE_URL=sqlite:///./data/ticket_system.db
-    command: python init_database.py
-    restart: "no" 
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=ticket_system
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres_data: 
