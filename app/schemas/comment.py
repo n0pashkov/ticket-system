@@ -17,7 +17,7 @@ class CommentResponse(CommentBase):
     """Модель для ответа с комментарием."""
     id: int
     ticket_id: int
-    user_id: int
+    author_id: int
     created_at: datetime
     
     class Config:

@@ -277,4 +277,130 @@ def read_comments(
     
     # Получаем комментарии
     comments = db.query(Comment).filter(Comment.ticket_id == ticket_id).offset(skip).limit(limit).all()
-    return comments 
+    return comments
+
+
+# Назначение заявки на текущего агента
+@router.post("/{ticket_id}/assign", response_model=TicketSchema)
+def assign_ticket_to_current_agent(
+    ticket_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    # Проверка роли пользователя
+    if current_user.role != UserRole.AGENT and current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Только технические специалисты и администраторы могут назначать заявки"
+        )
+    
+    # Получаем заявку из БД
+    db_ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if not db_ticket:
+        raise HTTPException(status_code=404, detail="Заявка не найдена")
+    
+    # Назначаем заявку на текущего пользователя
+    db_ticket.assigned_to_id = current_user.id
+    if db_ticket.status == TicketStatus.NEW:
+        db_ticket.status = TicketStatus.IN_PROGRESS
+    
+    db.commit()
+    db.refresh(db_ticket)
+    return db_ticket
+
+
+# Закрытие заявки
+@router.post("/{ticket_id}/close", response_model=TicketSchema)
+def close_ticket(
+    ticket_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    # Получаем заявку из БД
+    db_ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if not db_ticket:
+        raise HTTPException(status_code=404, detail="Заявка не найдена")
+    
+    # Проверка прав на закрытие заявки
+    if current_user.role == UserRole.USER and db_ticket.creator_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Нет прав для закрытия данной заявки"
+        )
+    
+    if (current_user.role == UserRole.AGENT and 
+        db_ticket.creator_id != current_user.id and 
+        db_ticket.assigned_to_id != current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Нет прав для закрытия данной заявки"
+        )
+    
+    # Меняем статус
+    db_ticket.status = TicketStatus.COMPLETED
+    
+    db.commit()
+    db.refresh(db_ticket)
+    return db_ticket
+
+
+# Повторное открытие заявки
+@router.post("/{ticket_id}/reopen", response_model=TicketSchema)
+def reopen_ticket(
+    ticket_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    # Получаем заявку из БД
+    db_ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if not db_ticket:
+        raise HTTPException(status_code=404, detail="Заявка не найдена")
+    
+    # Проверка прав на повторное открытие заявки
+    if current_user.role == UserRole.USER and db_ticket.creator_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Нет прав для повторного открытия данной заявки"
+        )
+    
+    if (current_user.role == UserRole.AGENT and 
+        db_ticket.creator_id != current_user.id and 
+        db_ticket.assigned_to_id != current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Нет прав для повторного открытия данной заявки"
+        )
+    
+    # Меняем статус
+    if db_ticket.status == TicketStatus.COMPLETED or db_ticket.status == TicketStatus.CANCELLED:
+        db_ticket.status = TicketStatus.IN_PROGRESS if db_ticket.assigned_to_id else TicketStatus.NEW
+    
+    db.commit()
+    db.refresh(db_ticket)
+    return db_ticket
+
+
+# Удаление заявки (доступно только администраторам)
+@router.delete("/{ticket_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_ticket(
+    ticket_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    # Проверяем, что пользователь является администратором
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Только администраторы могут удалять заявки"
+        )
+    
+    # Получаем заявку из БД
+    db_ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if not db_ticket:
+        raise HTTPException(status_code=404, detail="Заявка не найдена")
+    
+    # Удаляем заявку
+    db.delete(db_ticket)
+    db.commit()
+    
+    return None 

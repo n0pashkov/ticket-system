@@ -69,7 +69,7 @@ test.db
 test_*.py
 run_tests.py
 .pytest_cache/
-
+tests/
 # Временные скрипты
 create_test_tickets.py
 check_tickets.py

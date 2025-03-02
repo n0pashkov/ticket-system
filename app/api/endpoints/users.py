@@ -7,7 +7,7 @@ from app.core.dependencies import get_current_admin
 from app.db.database import get_db
 from app.models.models import User, UserRole
 from app.schemas.schemas import User as UserSchema
-from app.schemas.schemas import UserCreate, UserUpdate
+from app.schemas.schemas import UserCreate, UserUpdate, UserMe
 
 router = APIRouter()
 
@@ -62,6 +62,12 @@ def read_users(
     return users
 
 
+# Получение информации о текущем пользователе
+@router.get("/me/", response_model=UserMe)
+def read_user_me(current_user: User = Depends(get_current_active_user)):
+    return current_user
+
+
 # Получение информации о пользователе по ID
 @router.get("/{user_id}", response_model=UserSchema)
 def read_user(
@@ -80,12 +86,6 @@ def read_user(
     if db_user is None:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
     return db_user
-
-
-# Получение информации о текущем пользователе
-@router.get("/me/", response_model=UserSchema)
-def read_user_me(current_user: User = Depends(get_current_active_user)):
-    return current_user
 
 
 # Обновление пользователя
