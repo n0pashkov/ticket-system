@@ -31,7 +31,7 @@ def allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-@router.post("/upload/{ticket_id}", response_model=Attachment)
+@router.post("/upload/{ticket_id}", response_model=Attachment, status_code=status.HTTP_201_CREATED)
 async def upload_attachment(
     ticket_id: int,
     file: UploadFile = File(...),

@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel, EmailStr, ConfigDict
 
@@ -7,8 +7,9 @@ class UserBase(BaseModel):
     """Базовая модель пользователя."""
     username: str
     email: EmailStr
-    full_name: str
+    full_name: Optional[str] = None
     is_active: bool = True
+    role: str = "user"
 
 
 class UserCreate(UserBase):
@@ -32,6 +33,7 @@ class UserResponse(UserBase):
     id: int
     role: str
     created_at: datetime
+    tickets: Optional[List] = []
     
     model_config = ConfigDict(from_attributes=True)
 

@@ -31,8 +31,7 @@ class TicketBase(BaseModel):
     title: str
     description: str
     priority: str = "medium"
-    category: Optional[str] = None
-    equipment_id: Optional[int] = None
+    category_id: Optional[int] = None
 
 
 # Схема для создания заявки
@@ -44,11 +43,10 @@ class TicketCreate(TicketBase):
 class TicketUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
-    priority: Optional[int] = None
+    priority: Optional[str] = None
     status: Optional[str] = None
-    category: Optional[str] = None
+    category_id: Optional[int] = None
     assigned_to_id: Optional[int] = None
-    equipment_id: Optional[int] = None
     resolution: Optional[str] = None
 
 
@@ -61,7 +59,7 @@ class Ticket(TicketBase):
     creator_id: int
     assigned_to_id: Optional[int] = None
     resolution: Optional[str] = None
-    comments: List[Comment] = []
+    comments: List[int] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -274,4 +272,29 @@ class UserActivity(BaseModel):
     username: str
     full_name: Optional[str] = None
     ticket_count: Optional[int] = None
-    comment_count: Optional[int] = None 
+    comment_count: Optional[int] = None
+
+
+# Схемы для категорий заявок
+class TicketCategoryBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    is_active: bool = True
+
+
+class TicketCategoryCreate(TicketCategoryBase):
+    pass
+
+
+class TicketCategoryUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class TicketCategory(TicketCategoryBase):
+    id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True) 

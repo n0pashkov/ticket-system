@@ -12,19 +12,40 @@ class Settings(BaseSettings):
     Настройки приложения
     """
     # Название приложения
-    APP_NAME: str = "Система заявок на ремонт"
+    APP_NAME: str = "Ticket System API"
     
-    # Базовый URL API
+    # Версия API
     API_V1_STR: str = "/api/v1"
     
-    # Секретный ключ для JWT токенов
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-keep-it-secret")
-    
-    # Алгоритм для JWT
+    # Настройки безопасности
+    SECRET_KEY: str = "your-secret-key-for-development-only"
     ALGORITHM: str = "HS256"
-    
-    # Время жизни токена (в минутах)
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    
+    # Настройки CORS для разработки и продакшена
+    BACKEND_CORS_ORIGINS: List[str] = ["*"]
+    
+    # Метод для программной настройки CORS в зависимости от среды запуска
+    def get_cors_origins(self, environment: str = "development"):
+        """
+        Возвращает список разрешенных источников CORS в зависимости от среды запуска
+        """
+        if environment == "production":
+            # В продакшене только конкретные домены
+            return [
+                "https://yourproddomain.com",
+                "https://www.yourproddomain.com",
+                "https://app.yourproddomain.com",
+            ]
+        elif environment == "staging":
+            # На тестовых серверах
+            return [
+                "https://staging.yourproddomain.com",
+                "https://test.yourproddomain.com",
+            ]
+        else:
+            # В разработке разрешаем localhost и все остальные источники
+            return ["*", "http://localhost:3000", "http://127.0.0.1:3000"]
     
     # URL базы данных
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./ticket_system.db")
@@ -32,8 +53,8 @@ class Settings(BaseSettings):
     # Параметры для подключения к базе данных
     DATABASE_PARAMS: Dict[str, Any] = {"check_same_thread": False}
     
-    # Настройки для CORS
-    BACKEND_CORS_ORIGINS: List[str] = ["*"]
+    # Токен для Telegram бота
+    TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
 
     # Конфигурация настроек
     model_config = SettingsConfigDict(case_sensitive=True)

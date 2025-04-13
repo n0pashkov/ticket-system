@@ -64,7 +64,7 @@ def read_users(
 
 # Получение информации о текущем пользователе
 @router.get("/me/", response_model=UserMe)
-def read_user_me(current_user: User = Depends(get_current_active_user)):
+async def read_user_me(current_user: User = Depends(get_current_active_user)):
     return current_user
 
 

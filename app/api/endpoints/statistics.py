@@ -153,7 +153,7 @@ def get_tickets_by_period(
     }
 
 
-@router.get("/user-activity", response_model=List[Dict[str, Any]])
+@router.get("/user-activity", response_model=Dict[str, List[Dict[str, Any]]])
 def get_user_activity(
     top: int = 10,
     db: Session = Depends(get_db),
@@ -189,18 +189,18 @@ def get_user_activity(
     return {
         "most_active_by_tickets": [
             {
-                "user_id": user.id,
-                "username": user.username,
-                "full_name": user.full_name,
+                "user_id": user_id,
+                "username": username,
+                "full_name": full_name,
                 "ticket_count": ticket_count
-            } for user, ticket_count in users_with_most_tickets
+            } for user_id, username, full_name, ticket_count in users_with_most_tickets
         ],
         "most_active_by_comments": [
             {
-                "user_id": user.id,
-                "username": user.username,
-                "full_name": user.full_name,
+                "user_id": user_id,
+                "username": username,
+                "full_name": full_name,
                 "comment_count": comment_count
-            } for user, comment_count in users_with_most_comments
+            } for user_id, username, full_name, comment_count in users_with_most_comments
         ]
     } 

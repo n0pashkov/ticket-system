@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status as http_status
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.security import get_current_active_user
@@ -13,7 +13,7 @@ router = APIRouter()
 
 
 # Создание новой заявки (доступно всем авторизованным пользователям)
-@router.post("/", response_model=TicketSchema, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=TicketSchema, status_code=http_status.HTTP_201_CREATED)
 def create_ticket(
     ticket: TicketCreate,
     db: Session = Depends(get_db),
@@ -23,6 +23,7 @@ def create_ticket(
         title=ticket.title,
         description=ticket.description,
         priority=ticket.priority,
+        category_id=ticket.category_id,
         creator_id=current_user.id
     )
     db.add(db_ticket)
@@ -40,25 +41,69 @@ def read_tickets(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    # Строим запрос к БД
-    query = db.query(Ticket)
-    
-    # Фильтрация по статусу, если указан
-    if status:
-        query = query.filter(Ticket.status == status)
-    
-    # Фильтрация по типу пользователя
-    if current_user.role == UserRole.USER:
-        # Обычный пользователь видит только свои заявки
-        query = query.filter(Ticket.creator_id == current_user.id)
-    # Агенты и администраторы видят все заявки
-    
-    # Выполняем запрос с пагинацией
-    tickets = query.options(
-        joinedload(Ticket.comments)
-    ).offset(skip).limit(limit).all()
-    
-    return tickets
+    try:
+        print(f">>> DEBUG: User {current_user.username} (role: {current_user.role}) requested tickets list")
+        print(f">>> DEBUG: Query parameters - skip: {skip}, limit: {limit}, status: {status}")
+        
+        # Строим запрос к БД
+        query = db.query(Ticket)
+        
+        # Фильтрация по статусу, если указан
+        if status:
+            print(f">>> DEBUG: Filtering by status: {status}")
+            query = query.filter(Ticket.status == status)
+        
+        # Фильтрация по типу пользователя
+        if current_user.role == UserRole.USER:
+            print(f">>> DEBUG: User role is USER, filtering by creator_id: {current_user.id}")
+            # Обычный пользователь видит только свои заявки
+            query = query.filter(Ticket.creator_id == current_user.id)
+        else:
+            print(f">>> DEBUG: User role is {current_user.role}, showing all tickets")
+        
+        # Выполняем запрос с пагинацией
+        try:
+            db_tickets = query.offset(skip).limit(limit).all()
+            print(f">>> DEBUG: Got {len(db_tickets)} tickets")
+            
+            # Преобразуем объекты перед возвратом
+            tickets = []
+            for db_ticket in db_tickets:
+                # Преобразуем числовой приоритет в строку, если нужно
+                if isinstance(db_ticket.priority, int):
+                    priority_map = {1: "low", 2: "medium", 3: "high", 4: "critical"}
+                    priority = priority_map.get(db_ticket.priority, "medium")
+                else:
+                    priority = db_ticket.priority
+                
+                # Получаем ID комментариев вместо объектов
+                comment_ids = [comment.id for comment in db_ticket.comments] if db_ticket.comments else []
+                
+                # Создаем словарь с данными тикета с правильными типами
+                ticket_dict = {
+                    "id": db_ticket.id,
+                    "title": db_ticket.title,
+                    "description": db_ticket.description,
+                    "status": db_ticket.status,
+                    "priority": priority,
+                    "category": getattr(db_ticket, "category", None),
+                    "created_at": db_ticket.created_at,
+                    "updated_at": db_ticket.updated_at,
+                    "creator_id": db_ticket.creator_id,
+                    "assigned_to_id": db_ticket.assigned_to_id,
+                    "resolution": db_ticket.resolution,
+                    "comments": comment_ids
+                }
+                tickets.append(ticket_dict)
+                
+            return tickets
+        except Exception as db_error:
+            print(f">>> DEBUG: Database error: {db_error}")
+            raise
+    except Exception as e:
+        print(f">>> DEBUG: Error in read_tickets: {e}")
+        print(f">>> DEBUG: Error type: {type(e)}")
+        raise
 
 
 # Получение конкретной заявки по ID
@@ -76,7 +121,7 @@ def read_ticket(
     # Проверка прав доступа к заявке
     if current_user.role == UserRole.USER and ticket.creator_id != current_user.id:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=http_status.HTTP_403_FORBIDDEN,
             detail="Нет прав для просмотра данной заявки"
         )
     
@@ -103,7 +148,7 @@ def update_ticket(
         # Обычный пользователь может изменять только свои заявки и не может менять статус или назначать исполнителя
         if db_ticket.creator_id != current_user.id:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
+                status_code=http_status.HTTP_403_FORBIDDEN,
                 detail="Нет прав для изменения данной заявки"
             )
         
@@ -175,7 +220,7 @@ def update_ticket_status(
         db_ticket.assigned_to_id != current_user.id and 
         current_user.id != db_ticket.creator_id):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=http_status.HTTP_403_FORBIDDEN,
             detail="Нет прав для изменения статуса данной заявки"
         )
     
@@ -203,7 +248,7 @@ def create_comment(
     # Проверка прав на комментирование заявки
     if current_user.role == UserRole.USER and db_ticket.creator_id != current_user.id:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=http_status.HTTP_403_FORBIDDEN,
             detail="Нет прав для комментирования данной заявки"
         )
     
@@ -211,7 +256,7 @@ def create_comment(
         db_ticket.creator_id != current_user.id and 
         db_ticket.assigned_to_id != current_user.id):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=http_status.HTTP_403_FORBIDDEN,
             detail="Нет прав для комментирования данной заявки"
         )
     
@@ -245,7 +290,7 @@ def read_comments(
     # Проверка прав на просмотр комментариев
     if current_user.role == UserRole.USER and db_ticket.creator_id != current_user.id:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=http_status.HTTP_403_FORBIDDEN,
             detail="Нет прав для просмотра комментариев данной заявки"
         )
     
@@ -253,7 +298,7 @@ def read_comments(
         db_ticket.creator_id != current_user.id and 
         db_ticket.assigned_to_id != current_user.id):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=http_status.HTTP_403_FORBIDDEN,
             detail="Нет прав для просмотра комментариев данной заявки"
         )
     
@@ -272,7 +317,7 @@ def assign_ticket_to_current_agent(
     # Проверка роли пользователя
     if current_user.role != UserRole.AGENT and current_user.role != UserRole.ADMIN:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=http_status.HTTP_403_FORBIDDEN,
             detail="Только технические специалисты и администраторы могут назначать заявки"
         )
     
@@ -288,7 +333,34 @@ def assign_ticket_to_current_agent(
     
     db.commit()
     db.refresh(db_ticket)
-    return db_ticket
+    
+    # Преобразуем числовой приоритет в строку, если нужно
+    if isinstance(db_ticket.priority, int):
+        priority_map = {1: "low", 2: "medium", 3: "high", 4: "critical"}
+        priority = priority_map.get(db_ticket.priority, "medium")
+    else:
+        priority = db_ticket.priority
+    
+    # Получаем ID комментариев вместо объектов
+    comment_ids = [comment.id for comment in db_ticket.comments] if db_ticket.comments else []
+    
+    # Создаем словарь с данными тикета с правильными типами
+    ticket_dict = {
+        "id": db_ticket.id,
+        "title": db_ticket.title,
+        "description": db_ticket.description,
+        "status": db_ticket.status,
+        "priority": priority,
+        "category": getattr(db_ticket, "category", None),
+        "created_at": db_ticket.created_at,
+        "updated_at": db_ticket.updated_at,
+        "creator_id": db_ticket.creator_id,
+        "assigned_to_id": db_ticket.assigned_to_id,
+        "resolution": db_ticket.resolution,
+        "comments": comment_ids
+    }
+    
+    return ticket_dict
 
 
 # Закрытие заявки
@@ -306,7 +378,7 @@ def close_ticket(
     # Проверка прав на закрытие заявки
     if current_user.role == UserRole.USER and db_ticket.creator_id != current_user.id:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=http_status.HTTP_403_FORBIDDEN,
             detail="Нет прав для закрытия данной заявки"
         )
     
@@ -335,7 +407,7 @@ def reopen_ticket(
     # Проверка прав на повторное открытие заявки
     if current_user.role == UserRole.USER and db_ticket.creator_id != current_user.id:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=http_status.HTTP_403_FORBIDDEN,
             detail="Нет прав для повторного открытия данной заявки"
         )
     
@@ -351,7 +423,7 @@ def reopen_ticket(
 
 
 # Удаление заявки (доступно только администраторам)
-@router.delete("/{ticket_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{ticket_id}", status_code=http_status.HTTP_204_NO_CONTENT)
 def delete_ticket(
     ticket_id: int,
     db: Session = Depends(get_db),
@@ -360,7 +432,7 @@ def delete_ticket(
     # Проверяем, что пользователь является администратором
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=http_status.HTTP_403_FORBIDDEN,
             detail="Только администраторы могут удалять заявки"
         )
     

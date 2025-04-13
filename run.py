@@ -20,10 +20,4 @@ if __name__ == "__main__":
     reload_enabled = environment.lower() == "development"
     
     # Запускаем сервер
-    uvicorn.run(
-        "app.main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=reload_enabled,
-        workers=4 if environment.lower() == "production" else 1
-    ) 
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True) 

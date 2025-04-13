@@ -95,6 +95,24 @@ class User(Base):
 from app.models.ticket import Ticket
 
 
+# Модель категории заявок
+class TicketCategory(Base):
+    __tablename__ = "ticket_categories"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True)
+    description = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Связь с заявками
+    tickets = relationship("Ticket", back_populates="category")
+    
+    def __repr__(self):
+        return f"<TicketCategory(id={self.id}, name='{self.name}')>"
+
+
 # Модель заявки
 class Ticket(Base):
     __tablename__ = "tickets"
@@ -116,15 +134,22 @@ class Ticket(Base):
     assigned_to_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     assigned_to = relationship("User", foreign_keys=[assigned_to_id], back_populates="assigned_tickets")
     
+    # Внешний ключ на категорию
+    category_id = Column(Integer, ForeignKey("ticket_categories.id"), nullable=True)
+    category = relationship("TicketCategory", back_populates="tickets")
+    
     # Связь с комментариями
     comments = relationship("Comment", back_populates="ticket", cascade="all, delete-orphan")
     
     # Связь с вложениями
     attachments = relationship("Attachment", back_populates="ticket", cascade="all, delete-orphan")
     
-    # Связь с оборудованием
-    equipment_id = Column(Integer, ForeignKey("equipment.id"), nullable=True)
-    equipment = relationship("Equipment", back_populates="tickets")
+    # Связь с оборудованием - временно отключена, так как столбца нет в базе данных
+    # equipment_id = Column(Integer, ForeignKey("equipment.id"), nullable=True)
+    # equipment = relationship("Equipment", back_populates="tickets")
+
+    def __repr__(self):
+        return f"<Ticket(id={self.id}, title='{self.title}', status='{self.status}', priority='{self.priority}')>"
 
 
 # Модель комментария
@@ -211,8 +236,8 @@ class Equipment(Base):
     updated_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     updated_by = relationship("User", foreign_keys=[updated_by_id], back_populates="updated_equipment")
     
-    # Связь с заявками
-    tickets = relationship("Ticket", back_populates="equipment", post_update=True)
+    # Связь с заявками - временно отключена
+    # tickets = relationship("Ticket", back_populates="equipment", post_update=True)
     
     # Связь с записями о техническом обслуживании
     maintenance_records = relationship("Maintenance", back_populates="equipment", cascade="all, delete-orphan")

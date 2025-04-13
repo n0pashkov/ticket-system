@@ -30,7 +30,7 @@ def get_user_notifications(
     return []
 
 
-@router.post("/mark-read/{notification_id}", response_model=Notification)
+@router.post("/mark-read/{notification_id}", response_model=Dict[str, Any])
 def mark_notification_read(
     notification_id: int,
     db: Session = Depends(get_db),
