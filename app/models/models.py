@@ -17,8 +17,7 @@ class UserRole(str, enum.Enum):
 class TicketStatus(str, enum.Enum):
     NEW = "new"
     IN_PROGRESS = "in_progress"
-    COMPLETED = "completed"
-    CANCELLED = "cancelled"
+    CLOSED = "closed"
 
 
 # Определение типов уведомлений
@@ -125,6 +124,7 @@ class Ticket(Base):
     resolution = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    is_hidden_for_creator = Column(Boolean, default=False)  # Флаг для "мягкого удаления"
     
     # Внешний ключ на создателя
     creator_id = Column(Integer, ForeignKey("users.id"))

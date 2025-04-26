@@ -56,8 +56,8 @@ def read_tickets(
         # Фильтрация по типу пользователя
         if current_user.role == UserRole.USER:
             print(f">>> DEBUG: User role is USER, filtering by creator_id: {current_user.id}")
-            # Обычный пользователь видит только свои заявки
-            query = query.filter(Ticket.creator_id == current_user.id)
+            # Обычный пользователь видит только свои заявки, которые не скрыты
+            query = query.filter(Ticket.creator_id == current_user.id, Ticket.is_hidden_for_creator == False)
         else:
             print(f">>> DEBUG: User role is {current_user.role}, showing all tickets")
         
@@ -119,11 +119,15 @@ def read_ticket(
         raise HTTPException(status_code=404, detail="Заявка не найдена")
     
     # Проверка прав доступа к заявке
-    if current_user.role == UserRole.USER and ticket.creator_id != current_user.id:
-        raise HTTPException(
-            status_code=http_status.HTTP_403_FORBIDDEN,
-            detail="Нет прав для просмотра данной заявки"
-        )
+    if current_user.role == UserRole.USER:
+        if ticket.creator_id != current_user.id:
+            raise HTTPException(
+                status_code=http_status.HTTP_403_FORBIDDEN,
+                detail="Нет прав для просмотра данной заявки"
+            )
+        # Проверяем, не скрыта ли заявка для пользователя
+        if ticket.is_hidden_for_creator:
+            raise HTTPException(status_code=404, detail="Заявка не найдена")
     
     # Агенты и администраторы могут просматривать все заявки
     
@@ -215,14 +219,8 @@ def update_ticket_status(
     if not db_ticket:
         raise HTTPException(status_code=404, detail="Заявка не найдена")
     
-    # Агент может менять статус только назначенных на него заявок
-    if (current_user.role == UserRole.AGENT and 
-        db_ticket.assigned_to_id != current_user.id and 
-        current_user.id != db_ticket.creator_id):
-        raise HTTPException(
-            status_code=http_status.HTTP_403_FORBIDDEN,
-            detail="Нет прав для изменения статуса данной заявки"
-        )
+    # Если пользователь - администратор, ему разрешены любые изменения
+    # Агент теперь тоже может менять статус любой заявки
     
     # Меняем статус
     db_ticket.status = status
@@ -252,13 +250,7 @@ def create_comment(
             detail="Нет прав для комментирования данной заявки"
         )
     
-    if (current_user.role == UserRole.AGENT and 
-        db_ticket.creator_id != current_user.id and 
-        db_ticket.assigned_to_id != current_user.id):
-        raise HTTPException(
-            status_code=http_status.HTTP_403_FORBIDDEN,
-            detail="Нет прав для комментирования данной заявки"
-        )
+    # Агенты и администраторы могут комментировать любые заявки
     
     # Создаем комментарий
     db_comment = Comment(
@@ -294,13 +286,7 @@ def read_comments(
             detail="Нет прав для просмотра комментариев данной заявки"
         )
     
-    if (current_user.role == UserRole.AGENT and 
-        db_ticket.creator_id != current_user.id and 
-        db_ticket.assigned_to_id != current_user.id):
-        raise HTTPException(
-            status_code=http_status.HTTP_403_FORBIDDEN,
-            detail="Нет прав для просмотра комментариев данной заявки"
-        )
+    # Агенты и администраторы могут просматривать комментарии всех заявок
     
     # Получаем комментарии
     comments = db.query(Comment).filter(Comment.ticket_id == ticket_id).offset(skip).limit(limit).all()
@@ -392,57 +378,34 @@ def close_ticket(
     return db_ticket
 
 
-# Повторное открытие заявки
-@router.post("/{ticket_id}/reopen", response_model=TicketSchema)
-def reopen_ticket(
-    ticket_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
-):
-    # Получаем заявку из БД
-    db_ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
-    if not db_ticket:
-        raise HTTPException(status_code=404, detail="Заявка не найдена")
-    
-    # Проверка прав на повторное открытие заявки
-    if current_user.role == UserRole.USER and db_ticket.creator_id != current_user.id:
-        raise HTTPException(
-            status_code=http_status.HTTP_403_FORBIDDEN,
-            detail="Нет прав для повторного открытия данной заявки"
-        )
-    
-    # Агенты и администраторы могут повторно открывать любые заявки
-    
-    # Меняем статус
-    if db_ticket.status == TicketStatus.COMPLETED or db_ticket.status == TicketStatus.CANCELLED or db_ticket.status == "closed":
-        db_ticket.status = "reopened"
-    
-    db.commit()
-    db.refresh(db_ticket)
-    return db_ticket
-
-
-# Удаление заявки (доступно только администраторам)
+# Удаление заявки (доступно администраторам и создателям заявок)
 @router.delete("/{ticket_id}", status_code=http_status.HTTP_204_NO_CONTENT)
 def delete_ticket(
     ticket_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    # Проверяем, что пользователь является администратором
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(
-            status_code=http_status.HTTP_403_FORBIDDEN,
-            detail="Только администраторы могут удалять заявки"
-        )
-    
     # Получаем заявку из БД
     db_ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
     if not db_ticket:
         raise HTTPException(status_code=404, detail="Заявка не найдена")
     
-    # Удаляем заявку
-    db.delete(db_ticket)
+    # Проверяем права на удаление/скрытие:
+    # - Администраторы могут удалять любые заявки
+    # - Создатели могут скрывать только свои заявки
+    if current_user.role != UserRole.ADMIN and db_ticket.creator_id != current_user.id:
+        raise HTTPException(
+            status_code=http_status.HTTP_403_FORBIDDEN,
+            detail="Только администраторы и создатели заявок могут удалять заявки"
+        )
+    
+    # Для администраторов - реальное удаление
+    if current_user.role == UserRole.ADMIN:
+        db.delete(db_ticket)
+    # Для обычных пользователей - "мягкое удаление" - установка флага is_hidden_for_creator
+    elif db_ticket.creator_id == current_user.id:
+        db_ticket.is_hidden_for_creator = True
+    
     db.commit()
     
     return None 

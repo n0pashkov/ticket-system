@@ -36,31 +36,40 @@ const Layout = ({ children }) => {
     navigate('/login');
   };
 
-  // Определяем базовые пункты меню
+  // Определяем базовые пункты меню для всех пользователей
   const baseMenuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
-    { text: 'Tickets', icon: <ConfirmationNumberIcon />, path: '/tickets' },
-    { text: 'Create Ticket', icon: <AddCircleIcon />, path: '/tickets/new' },
-    { text: 'Profile', icon: <PersonIcon />, path: '/profile' },
-    { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
+    { text: 'Информационная панель', icon: <DashboardIcon />, path: '/' },
+    { text: 'Заявки', icon: <ConfirmationNumberIcon />, path: '/tickets' },
+    { text: 'Профиль', icon: <PersonIcon />, path: '/profile' },
+    { text: 'Настройки', icon: <SettingsIcon />, path: '/settings' },
   ];
   
-  // Добавляем пункты меню для администраторов
+  // Пункты меню для обычных пользователей
+  const userMenuItems = [
+    { text: 'Создать заявку', icon: <AddCircleIcon />, path: '/tickets/new' },
+  ];
+  
+  // Пункты меню для администраторов
   const adminMenuItems = [
-    { text: 'Category Management', icon: <CategoryIcon />, path: '/category-management' },
+    { text: 'Управление категориями', icon: <CategoryIcon />, path: '/category-management' },
   ];
   
-  // Формируем итоговый список пунктов меню
-  const menuItems = [
-    ...baseMenuItems,
-    ...(user?.role === 'admin' ? adminMenuItems : [])
-  ];
+  // Формируем итоговый список пунктов меню в зависимости от роли
+  let menuItems = [...baseMenuItems];
+  
+  if (user?.role === 'admin') {
+    menuItems = [...baseMenuItems, ...userMenuItems, ...adminMenuItems];
+  } else if (user?.role === 'agent') {
+    menuItems = [...baseMenuItems];
+  } else {
+    menuItems = [...baseMenuItems, ...userMenuItems];
+  }
 
   const drawer = (
     <div>
       <Toolbar>
         <Typography variant="h6" noWrap component="div">
-          Ticket System
+          Система заявок
         </Typography>
       </Toolbar>
       <Divider />
@@ -83,7 +92,7 @@ const Layout = ({ children }) => {
           sx={{ cursor: 'pointer' }}
         >
           <ListItemIcon><LogoutIcon /></ListItemIcon>
-          <ListItemText primary="Logout" />
+          <ListItemText primary="Выход" />
         </ListItem>
       </List>
     </div>
@@ -110,15 +119,15 @@ const Layout = ({ children }) => {
             <MenuIcon />
           </IconButton>
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            Ticket System
+            Система заявок
           </Typography>
           {user ? (
             <Typography variant="body1" color="inherit">
-              Hello, {user.name}
+              Привет, {user.name}
             </Typography>
           ) : (
             <Button color="inherit" onClick={() => navigate('/login')}>
-              Login
+              Вход
             </Button>
           )}
         </Toolbar>

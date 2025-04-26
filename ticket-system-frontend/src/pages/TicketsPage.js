@@ -14,15 +14,15 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
+import DoneIcon from '@mui/icons-material/Done';
 import { useTickets } from '../hooks/useTickets';
+import { useUsers } from '../hooks/useUsers';
 import { useAuth } from '../context/AuthContext';
 
 const statusColors = {
   'new': 'warning',
   'in_progress': 'info',
-  'closed': 'success',
-  'waiting_client': 'error',
-  'rejected': 'error'
+  'closed': 'success'
 };
 
 const priorityColors = {
@@ -36,9 +36,7 @@ const formatStatus = (status) => {
   const statusMap = {
     'new': 'Новая',
     'in_progress': 'В работе',
-    'closed': 'Закрыта',
-    'waiting_client': 'Ожидает клиента',
-    'rejected': 'Отклонена'
+    'closed': 'Закрыта'
   };
   return statusMap[status] || status;
 };
@@ -56,6 +54,7 @@ const formatPriority = (priority) => {
 const TicketsPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth(); // Получаем информацию о текущем пользователе
+  const { users, getUserById } = useUsers(); // Получаем список пользователей и функцию получения пользователя по ID
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterPriority, setFilterPriority] = useState('all');
@@ -87,7 +86,8 @@ const TicketsPage = () => {
     isError, 
     error,
     deleteTicket,
-    selfAssignTicket 
+    selfAssignTicket,
+    closeTicket
   } = useTickets(apiFilters);
 
   const handleSearch = (e) => {
@@ -131,6 +131,14 @@ const TicketsPage = () => {
         setDeleteError(null);
         await deleteTicket(ticketToDelete.id);
         closeDeleteDialog();
+        // Показываем уведомление об успешном удалении/скрытии
+        setSnackbar({
+          open: true,
+          message: user && user.role === 'admin' 
+                   ? 'Заявка успешно удалена' 
+                   : 'Заявка успешно скрыта',
+          severity: 'success'
+        });
       } catch (err) {
         console.error('Error during ticket deletion:', err);
         setDeleteError('Ошибка при удалении заявки. Пожалуйста, попробуйте позже.');
@@ -190,12 +198,44 @@ const TicketsPage = () => {
     }
   };
 
+  // Обработчик закрытия заявки
+  const handleCloseTicket = async (ticketId, event) => {
+    event.stopPropagation(); // Предотвращаем навигацию на страницу заявки
+    try {
+      await closeTicket(ticketId);
+      setSnackbar({
+        open: true,
+        message: 'Заявка успешно отмечена как выполненная',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('Ошибка при закрытии заявки:', error);
+      setSnackbar({
+        open: true,
+        message: 'Ошибка при закрытии заявки',
+        severity: 'error'
+      });
+    }
+  };
+
   // Закрытие уведомления
   const handleCloseSnackbar = (event, reason) => {
     if (reason === 'clickaway') {
       return;
     }
     setSnackbar(prev => ({ ...prev, open: false }));
+  };
+
+  // Получение полного имени исполнителя по ID
+  const getAssigneeName = (assignedToId) => {
+    if (!assignedToId) return null;
+    const assignee = getUserById(assignedToId);
+    return assignee?.full_name || "Назначен";
+  };
+
+  // Обработчик клика по строке таблицы - переход на страницу детальной информации
+  const handleRowClick = (ticketId) => {
+    navigate(`/tickets/${ticketId}`);
   };
 
   if (isLoading) {
@@ -261,8 +301,6 @@ const TicketsPage = () => {
                 <MenuItem value="new">Новые</MenuItem>
                 <MenuItem value="in_progress">В работе</MenuItem>
                 <MenuItem value="closed">Закрытые</MenuItem>
-                <MenuItem value="waiting_client">Ожидают клиента</MenuItem>
-                <MenuItem value="rejected">Отклоненные</MenuItem>
               </Select>
             </FormControl>
           </Grid>
@@ -301,7 +339,15 @@ const TicketsPage = () => {
           <TableBody>
             {paginatedTickets.length > 0 ? (
               paginatedTickets.map((ticket) => (
-                <TableRow key={ticket.id}>
+                <TableRow 
+                  key={ticket.id} 
+                  onClick={() => handleRowClick(ticket.id)}
+                  hover
+                  sx={{ 
+                    cursor: 'pointer',
+                    '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.04)' }
+                  }}
+                >
                   <TableCell>{ticket.id}</TableCell>
                   <TableCell>{ticket.title}</TableCell>
                   <TableCell>
@@ -309,6 +355,7 @@ const TicketsPage = () => {
                       label={formatStatus(ticket.status)}
                       color={statusColors[ticket.status] || 'default'} 
                       size="small" 
+                      onClick={(e) => e.stopPropagation()} // Предотвращаем срабатывание клика по строке
                     />
                   </TableCell>
                   <TableCell>
@@ -316,13 +363,14 @@ const TicketsPage = () => {
                       label={formatPriority(ticket.priority)}
                       color={priorityColors[ticket.priority] || 'default'} 
                       size="small" 
+                      onClick={(e) => e.stopPropagation()} // Предотвращаем срабатывание клика по строке
                     />
                   </TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}> {/* Предотвращаем срабатывание клика по строке */}
                     {ticket.assigned_to_id ? (
                       <Chip
                         icon={<AssignmentIndIcon />}
-                        label="Назначен"
+                        label={getAssigneeName(ticket.assigned_to_id)}
                         color="info"
                         size="small"
                       />
@@ -335,14 +383,8 @@ const TicketsPage = () => {
                   <TableCell>
                     {new Date(ticket.created_at).toLocaleDateString()}
                   </TableCell>
-                  <TableCell>
-                    <IconButton 
-                      size="small" 
-                      color="primary"
-                      onClick={() => navigate(`/tickets/${ticket.id}`)}
-                    >
-                      <EditIcon />
-                    </IconButton>
+                  <TableCell onClick={(e) => e.stopPropagation()}> {/* Предотвращаем срабатывание клика по строке */}
+                    {/* Удалена иконка детальной информации (EditIcon) */}
                     
                     {/* Кнопка взятия в работу (только для агентов/админов и новых заявок) */}
                     {isAgentOrAdmin && ticket.status === 'new' && !ticket.assigned_to_id && (
@@ -357,13 +399,33 @@ const TicketsPage = () => {
                       </Tooltip>
                     )}
                     
-                    <IconButton 
-                      size="small" 
-                      color="error"
-                      onClick={() => openDeleteDialog(ticket)}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
+                    {/* Кнопка для отметки заявки как выполненная (только для агентов/админов и заявок в работе) */}
+                    {isAgentOrAdmin && ticket.status === 'in_progress' && 
+                     (user.role === 'admin' || ticket.assigned_to_id === user.id) && (
+                      <Tooltip title="Отметить как выполненную">
+                        <IconButton
+                          size="small"
+                          color="success"
+                          onClick={(e) => handleCloseTicket(ticket.id, e)}
+                        >
+                          <DoneIcon />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    
+                    {/* Показываем кнопку удаления для администраторов и создателей заявок */}
+                    {(user && user.role === 'admin') || (ticket.creator_id === user?.id) ? (
+                      <IconButton 
+                        size="small" 
+                        color="error"
+                        onClick={(e) => {
+                          e.stopPropagation(); // Предотвращаем срабатывание клика по строке
+                          openDeleteDialog(ticket);
+                        }}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    ) : null}
                   </TableCell>
                 </TableRow>
               ))
@@ -399,8 +461,11 @@ const TicketsPage = () => {
             </Alert>
           ) : (
             <Typography>
-              Вы уверены, что хотите удалить заявку "{ticketToDelete?.title}"?
-              Это действие нельзя отменить.
+              {user && user.role === 'admin' ? (
+                `Вы уверены, что хотите удалить заявку "${ticketToDelete?.title}"? Это действие нельзя отменить.`
+              ) : (
+                `Вы уверены, что хотите скрыть заявку "${ticketToDelete?.title}"? Вы больше не будете её видеть, но администраторы и технические специалисты по-прежнему будут иметь к ней доступ.`
+              )}
             </Typography>
           )}
         </DialogContent>
@@ -411,7 +476,7 @@ const TicketsPage = () => {
             color="error"
             disabled={!!deleteError}
           >
-            Удалить
+            {user && user.role === 'admin' ? 'Удалить' : 'Скрыть'}
           </Button>
         </DialogActions>
       </Dialog>

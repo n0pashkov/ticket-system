@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createTheme, ThemeProvider } from '@mui/material';
+import { Box, CircularProgress, Typography } from '@mui/material';
 
 // Context
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -8,10 +9,13 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 // Pages
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
+import AgentDashboardPage from './pages/AgentDashboardPage';
+import AdminDashboardPage from './pages/AdminDashboardPage';
 import TicketsPage from './pages/TicketsPage';
 import ProfilePage from './pages/ProfilePage';
 import CreateTicketPage from './pages/CreateTicketPage';
 import CategoryManagementPage from './pages/CategoryManagementPage';
+import TicketDetailsPage from './pages/TicketDetailsPage';
 
 // Components
 import Layout from './components/Layout';
@@ -64,6 +68,39 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
+// Dashboard Router - отображает соответствующий дашборд в зависимости от роли пользователя
+const DashboardRouter = () => {
+  const { user, loading } = useAuth();
+  
+  // Добавляем проверку загрузки
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 4 }}>
+        <CircularProgress size={60} />
+        <Typography variant="h6" sx={{ mt: 2 }}>Загрузка данных пользователя...</Typography>
+      </Box>
+    );
+  }
+  
+  // Проверяем наличие пользователя
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  // Если пользователь - администратор, отображаем панель администратора
+  if (user?.role === 'admin') {
+    return <AdminDashboardPage />;
+  }
+  
+  // Если пользователь - агент, отображаем агентский дашборд
+  if (user?.role === 'agent') {
+    return <AgentDashboardPage />;
+  }
+  
+  // Для обычных пользователей отображаем стандартный дашборд
+  return <DashboardPage />;
+};
+
 function App() {
   return (
     <ThemeProvider theme={theme}>
@@ -77,7 +114,7 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <Layout>
-                      <DashboardPage />
+                      <DashboardRouter />
                     </Layout>
                   </ProtectedRoute>
                 } 
@@ -107,8 +144,7 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <Layout>
-                      {/* We'll implement this page later */}
-                      <div>Ticket Details (Coming Soon)</div>
+                      <TicketDetailsPage />
                     </Layout>
                   </ProtectedRoute>
                 } 

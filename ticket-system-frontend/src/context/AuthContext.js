@@ -11,17 +11,33 @@ export const AuthProvider = ({ children }) => {
   // Проверяем токен и получаем информацию о пользователе при инициализации
   useEffect(() => {
     const checkAuth = async () => {
+      setLoading(true);
       const token = localStorage.getItem('token');
+      
       if (token) {
         try {
           // Получаем информацию о текущем пользователе
           const response = await usersAPI.getCurrent();
+          console.log('User data retrieved successfully:', response.data);
           setUser(response.data);
         } catch (err) {
           console.error('Failed to fetch user data:', err);
-          localStorage.removeItem('token');
+          
+          // Проверяем статус ошибки
+          if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+            console.error('Authentication token expired or invalid');
+            localStorage.removeItem('token');
+            setError('Необходимо войти в систему заново');
+          } else {
+            // Другие ошибки API
+            setError('Ошибка получения данных пользователя');
+          }
+          setUser(null);
         }
+      } else {
+        setUser(null);
       }
+      
       setLoading(false);
     };
 
@@ -32,6 +48,7 @@ export const AuthProvider = ({ children }) => {
     try {
       // Сбрасываем ошибку при новой попытке логина
       setError(null);
+      setLoading(true);
       
       console.log('Attempting login with:', userData.email);
       
@@ -50,6 +67,7 @@ export const AuthProvider = ({ children }) => {
         const userResponse = await usersAPI.getCurrent();
         console.log('User data received:', userResponse.data);
         setUser(userResponse.data);
+        setLoading(false);
         return { success: true };
       } catch (userErr) {
         console.error('Error fetching user data:', userErr);
@@ -76,6 +94,7 @@ export const AuthProvider = ({ children }) => {
         }
         
         setError(errorMessage);
+        setLoading(false);
         return { success: false, error: errorMessage };
       }
     } catch (err) {
@@ -91,17 +110,36 @@ export const AuthProvider = ({ children }) => {
       }
       
       setError(errorMessage);
+      setLoading(false);
       return { success: false, error: errorMessage };
+    }
+  };
+
+  const refreshUserData = async () => {
+    setLoading(true);
+    try {
+      const response = await usersAPI.getCurrent();
+      setUser(response.data);
+      setError(null);
+    } catch (err) {
+      console.error('Failed to refresh user data:', err);
+      if (err.response && err.response.status === 401) {
+        // Если сессия истекла, разлогиниваем пользователя
+        logout();
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
   const logout = () => {
     setUser(null);
     localStorage.removeItem('token');
+    setError(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, error }}>
+    <AuthContext.Provider value={{ user, login, logout, loading, error, refreshUserData }}>
       {children}
     </AuthContext.Provider>
   );

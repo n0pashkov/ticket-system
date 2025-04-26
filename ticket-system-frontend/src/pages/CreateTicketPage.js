@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import {
   Typography, Box, Paper, TextField, Button,
   FormControl, InputLabel, Select, MenuItem,
-  Grid, Alert, CircularProgress, Snackbar
+  Grid, Alert, CircularProgress, Snackbar,
+  Container
 } from '@mui/material';
 import MuiAlert from '@mui/material/Alert';
-import { ticketsAPI } from '../api/api';
+import { useTickets } from '../hooks/useTickets';
 import { useAuth } from '../context/AuthContext';
 import useCategories from '../hooks/useCategories';
 
@@ -14,6 +15,7 @@ const CreateTicketPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { categories, isLoading: categoriesLoading } = useCategories({ only_active: true });
+  const { createTicket } = useTickets();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -90,23 +92,43 @@ const CreateTicketPage = () => {
     setError('');
 
     try {
-      await ticketsAPI.create(formData);
-      setSuccess(true);
-      
-      // Перенаправление на страницу списка заявок через 1 секунду
-      setTimeout(() => {
-        navigate('/tickets');
-      }, 1000);
+      // Используем метод createTicket из useTickets вместо прямого вызова API
+      createTicket(formData, {
+        onSuccess: () => {
+          setSuccess(true);
+          
+          // Перенаправление на дашборд вместо списка заявок
+          setTimeout(() => {
+            navigate('/'); // Перенаправляем на дашборд
+          }, 1000);
+        },
+        onError: (err) => {
+          console.error('Ошибка при создании заявки:', err);
+          
+          // Исправленная обработка ошибки
+          if (err.response?.data?.detail) {
+            // Проверяем тип данных ошибки
+            if (typeof err.response.data.detail === 'object') {
+              // Если ошибка - объект с полями, извлекаем сообщение
+              if (err.response.data.detail.msg) {
+                setError(err.response.data.detail.msg);
+              } else {
+                // Преобразуем объект ошибки в строку
+                setError(JSON.stringify(err.response.data.detail));
+              }
+            } else {
+              // Если ошибка - строка, используем как есть
+              setError(err.response.data.detail);
+            }
+          } else {
+            setError('Произошла ошибка при создании заявки. Пожалуйста, попробуйте позже.');
+          }
+          setLoading(false);
+        }
+      });
     } catch (err) {
-      console.error('Ошибка при создании заявки:', err);
-      
-      // Обработка ошибки
-      if (err.response?.data?.detail) {
-        setError(err.response.data.detail);
-      } else {
-        setError('Произошла ошибка при создании заявки. Пожалуйста, попробуйте позже.');
-      }
-    } finally {
+      console.error('Необработанная ошибка:', err);
+      setError('Произошла непредвиденная ошибка');
       setLoading(false);
     }
   };
@@ -122,14 +144,14 @@ const CreateTicketPage = () => {
   };
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+    <Container maxWidth="md" sx={{ mt: 4 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
         <Typography variant="h4" component="h1">
           Создание новой заявки
         </Typography>
       </Box>
 
-      <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: 4 }}>
         {error && (
           <Alert severity="error" sx={{ mb: 3 }}>
             {error}
@@ -137,8 +159,8 @@ const CreateTicketPage = () => {
         )}
 
         <form onSubmit={handleSubmit}>
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
+          <Grid container spacing={3} justifyContent="center" direction="column" alignItems="center">
+            <Grid item xs={12} md={10}>
               <TextField
                 fullWidth
                 label="Заголовок заявки"
@@ -152,7 +174,7 @@ const CreateTicketPage = () => {
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid item xs={12} md={10}>
               <TextField
                 fullWidth
                 label="Описание проблемы"
@@ -168,14 +190,28 @@ const CreateTicketPage = () => {
               />
             </Grid>
 
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth disabled={loading}>
-                <InputLabel>Приоритет</InputLabel>
+            <Grid item xs={12} md={10}>
+              <FormControl fullWidth disabled={loading} variant="outlined">
+                <InputLabel id="priority-label" shrink>Приоритет</InputLabel>
                 <Select
+                  labelId="priority-label"
                   name="priority"
                   value={formData.priority}
                   onChange={handleChange}
                   label="Приоритет"
+                  notched
+                  sx={{ 
+                    minHeight: '56px',
+                    '& .MuiSelect-select': {
+                      paddingTop: '16px',
+                      display: 'flex',
+                      alignItems: 'center'
+                    },
+                    '& .MuiInputLabel-root': {
+                      background: '#fff',
+                      padding: '0 4px'
+                    }
+                  }}
                 >
                   <MenuItem value="low">Низкий</MenuItem>
                   <MenuItem value="medium">Средний</MenuItem>
@@ -184,20 +220,42 @@ const CreateTicketPage = () => {
               </FormControl>
             </Grid>
 
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth disabled={loading || categoriesLoading}>
-                <InputLabel>Категория</InputLabel>
+            <Grid item xs={12} md={10}>
+              <FormControl fullWidth disabled={loading || categoriesLoading} variant="outlined">
+                <InputLabel id="category-label" shrink>Категория</InputLabel>
                 <Select
+                  labelId="category-label"
                   name="category_id"
                   value={formData.category_id}
                   onChange={handleChange}
                   label="Категория"
+                  notched
+                  displayEmpty
+                  sx={{ 
+                    minHeight: '56px',
+                    '& .MuiSelect-select': {
+                      paddingTop: '16px',
+                      display: 'flex',
+                      alignItems: 'center'
+                    },
+                    '& .MuiInputLabel-root': {
+                      background: '#fff',
+                      padding: '0 4px'
+                    }
+                  }}
+                  renderValue={(selected) => {
+                    if (!selected) {
+                      return <span style={{ color: '#757575' }}>Не выбрана</span>;
+                    }
+                    const selectedCategory = categories.find(cat => cat.id === selected);
+                    return selectedCategory ? selectedCategory.name : 'Не выбрана';
+                  }}
                 >
-                  <MenuItem value="">
+                  <MenuItem value="" sx={{ minHeight: '40px' }}>
                     <em>Не выбрана</em>
                   </MenuItem>
                   {categories.map((category) => (
-                    <MenuItem key={category.id} value={category.id}>
+                    <MenuItem key={category.id} value={category.id} sx={{ minHeight: '40px' }}>
                       {category.name}
                     </MenuItem>
                   ))}
@@ -205,11 +263,12 @@ const CreateTicketPage = () => {
               </FormControl>
             </Grid>
 
-            <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2 }}>
+            <Grid item xs={12} md={10} sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 3 }}>
               <Button 
                 variant="outlined" 
                 onClick={handleCancel}
                 disabled={loading}
+                size="large"
               >
                 Отмена
               </Button>
@@ -218,6 +277,7 @@ const CreateTicketPage = () => {
                 variant="contained" 
                 color="primary"
                 disabled={loading}
+                size="large"
               >
                 {loading ? <CircularProgress size={24} /> : 'Создать заявку'}
               </Button>
@@ -242,7 +302,7 @@ const CreateTicketPage = () => {
           Заявка успешно создана!
         </MuiAlert>
       </Snackbar>
-    </Box>
+    </Container>
   );
 };
 

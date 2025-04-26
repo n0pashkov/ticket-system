@@ -38,7 +38,7 @@ def get_tickets_summary(
     # Среднее время обработки заявок (для завершенных)
     avg_resolution_time = db.query(
         func.avg(Ticket.updated_at - Ticket.created_at)
-    ).filter(Ticket.status == TicketStatus.COMPLETED).scalar()
+    ).filter(Ticket.status == TicketStatus.CLOSED).scalar()
     
     # Формируем результат
     result = {
@@ -77,14 +77,14 @@ def get_agent_performance(
         # Количество решенных заявок
         resolved_count = db.query(func.count(Ticket.id))\
             .filter(Ticket.assigned_to_id == agent.id)\
-            .filter(Ticket.status == TicketStatus.COMPLETED)\
+            .filter(Ticket.status == TicketStatus.CLOSED)\
             .filter(Ticket.updated_at >= period_start)\
             .scalar()
         
         # Среднее время решения
         avg_time = db.query(func.avg(Ticket.updated_at - Ticket.created_at))\
             .filter(Ticket.assigned_to_id == agent.id)\
-            .filter(Ticket.status == TicketStatus.COMPLETED)\
+            .filter(Ticket.status == TicketStatus.CLOSED)\
             .filter(Ticket.updated_at >= period_start)\
             .scalar()
         
@@ -127,13 +127,7 @@ def get_tickets_by_period(
     
     # Количество решенных заявок
     resolved_tickets = db.query(func.count(Ticket.id))\
-        .filter(Ticket.status == TicketStatus.COMPLETED)\
-        .filter(Ticket.updated_at >= period_start)\
-        .scalar()
-    
-    # Количество отмененных заявок
-    cancelled_tickets = db.query(func.count(Ticket.id))\
-        .filter(Ticket.status == TicketStatus.CANCELLED)\
+        .filter(Ticket.status == TicketStatus.CLOSED)\
         .filter(Ticket.updated_at >= period_start)\
         .scalar()
     
@@ -147,7 +141,6 @@ def get_tickets_by_period(
         "period": period,
         "new_tickets": new_tickets,
         "resolved_tickets": resolved_tickets,
-        "cancelled_tickets": cancelled_tickets,
         "in_progress_tickets": in_progress_tickets,
         "resolution_rate": resolved_tickets / new_tickets if new_tickets > 0 else 0
     }

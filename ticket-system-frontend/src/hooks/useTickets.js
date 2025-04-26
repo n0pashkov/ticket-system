@@ -1,15 +1,35 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ticketsAPI } from '../api/api';
+import { useAuth } from '../context/AuthContext';
 
 export const useTickets = (filters = {}) => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  // Добавляем идентификатор пользователя в фильтры, если он доступен
+  const combinedFilters = { ...filters };
+  if (user?.id) {
+    // Некоторые API могут поддерживать фильтрацию по user_id на стороне сервера
+    combinedFilters.user_id = user.id;
+  }
 
   const ticketsQuery = useQuery({
-    queryKey: ['tickets', filters],
-    queryFn: () => ticketsAPI.getAll(filters),
-    select: (data) => data.data || [],
+    queryKey: ['tickets', combinedFilters],
+    queryFn: () => {
+      console.log('Вызов API для получения заявок с фильтрами:', combinedFilters);
+      return ticketsAPI.getAll(combinedFilters);
+    },
+    select: (data) => {
+      console.log('Получены данные о заявках:', data);
+      if (!data || !data.data) {
+        console.error('Некорректный формат данных заявок:', data);
+        return [];
+      }
+      return data.data || [];
+    },
     onError: (error) => {
-      console.error('Error fetching tickets:', error);
+      console.error('Ошибка при получении заявок:', error);
+      console.error('Детали ошибки:', error.response?.status, error.response?.data);
       return [];
     }
   });
@@ -84,16 +104,6 @@ export const useTickets = (filters = {}) => {
     }
   });
 
-  const reopenTicketMutation = useMutation({
-    mutationFn: (ticketId) => ticketsAPI.reopenTicket(ticketId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tickets'] });
-    },
-    onError: (error) => {
-      console.error('Error reopening ticket:', error);
-    }
-  });
-
   return {
     tickets: ticketsQuery.data || [],
     isLoading: ticketsQuery.isLoading,
@@ -106,7 +116,6 @@ export const useTickets = (filters = {}) => {
     selfAssignTicket: selfAssignTicketMutation.mutate,
     updateStatus: updateStatusMutation.mutate,
     closeTicket: closeTicketMutation.mutate,
-    reopenTicket: reopenTicketMutation.mutate,
   };
 };
 

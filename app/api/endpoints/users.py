@@ -62,6 +62,16 @@ def read_users(
     return users
 
 
+# Получение базовой информации о всех пользователях (доступно всем авторизованным пользователям)
+@router.get("/basic", response_model=List[dict])
+def read_users_basic(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    users = db.query(User.id, User.full_name, User.username, User.role).all()
+    return [{"id": user.id, "full_name": user.full_name, "username": user.username, "role": user.role} for user in users]
+
+
 # Получение информации о текущем пользователе
 @router.get("/me/", response_model=UserMe)
 async def read_user_me(current_user: User = Depends(get_current_active_user)):

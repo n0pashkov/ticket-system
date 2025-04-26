@@ -9,6 +9,8 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  // Добавляем таймаут для запросов
+  timeout: 10000,
 });
 
 // Add interceptor to add auth token to requests
@@ -24,6 +26,7 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
+    console.error('Request error:', error);
     return Promise.reject(error);
   }
 );
@@ -34,6 +37,13 @@ api.interceptors.response.use(
   (error) => {
     // Логируем ошибки для отладки
     console.error('API Error:', error.response?.status, error.response?.data);
+    
+    // Если получаем 401 Unauthorized, значит токен истек или недействителен
+    if (error.response && error.response.status === 401) {
+      console.error('Unauthorized access detected, clearing token');
+      localStorage.removeItem('token');
+    }
+    
     return Promise.reject(error);
   }
 );
@@ -54,42 +64,108 @@ export const authAPI = {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
+      timeout: 5000,
     });
   },
   // В данном API регистрация не предусмотрена через отдельный метод
 };
 
+// API для получения данных пользователей
 export const usersAPI = {
-  getAll: () => api.get('/users'),
-  getById: (id) => api.get(`/users/${id}`),
+  getAll: () => api.get('/users/'),
+  getById: (id) => api.get(`/users/${id}/`),
   getCurrent: () => {
     const token = localStorage.getItem('token');
     if (!token) {
+      console.error('Попытка получить данные пользователя без токена');
       return Promise.reject(new Error('Токен не найден'));
     }
     
-    // Используем существующий эндпоинт с trailing slash, как он определен в бэкенде
-    return api.get('/users/me/');
-  },
-};
-
-export const ticketsAPI = {
-  getAll: (filters = {}) => {
-    console.log(">>> DEBUG: Calling getAll tickets with baseURL:", baseURL);
-    console.log(">>> DEBUG: Calling getAll tickets with token:", localStorage.getItem('token')?.slice(0, 10) + "...");
+    console.log('Запрос текущего пользователя с токеном:', token ? 'Токен есть' : 'Токен отсутствует');
     
-    return api.get('/tickets/')
+    // Используем существующий эндпоинт с trailing slash, как он определен в бэкенде
+    return api.get('/users/me/')
       .then(response => {
-        console.log(">>> DEBUG: getAll success:", response.data.length, "tickets");
+        console.log('Получены данные пользователя:', response.data);
         return response;
       })
       .catch(error => {
-        console.error(">>> DEBUG: getAll error:", error.message, error.response?.status, error.response?.data);
+        console.error('Ошибка получения данных пользователя:', error);
+        console.error('Статус ошибки:', error.response?.status);
+        console.error('Детали ошибки:', error.response?.data);
+        throw error;
+      });
+  },
+  getBasicInfo: () => api.get('/users/basic'),
+};
+
+// API для работы с заявками
+export const ticketsAPI = {
+  getAll: (filters = {}) => {
+    console.log(">>> DEBUG: Calling getAll tickets with baseURL:", baseURL);
+    console.log(">>> DEBUG: API token:", localStorage.getItem('token') ? 'Токен есть' : 'Токен отсутствует');
+    console.log(">>> DEBUG: Filters:", filters);
+    
+    // Создаем копию фильтров и удаляем undefined значения
+    const cleanFilters = { ...filters };
+    Object.keys(cleanFilters).forEach(key => {
+      if (cleanFilters[key] === undefined) {
+        delete cleanFilters[key];
+      }
+    });
+    
+    return api.get('/tickets/', { params: cleanFilters })
+      .then(response => {
+        console.log(">>> DEBUG: Получены заявки:", response.data);
+        
+        // Для каждой заявки выводим структуру полей, связанных с пользователем
+        if (Array.isArray(response.data) && response.data.length > 0) {
+          response.data.forEach((ticket, index) => {
+            const userRelatedFields = {
+              id: ticket.id,
+              requester_id: ticket.requester_id,
+              created_by_id: ticket.created_by_id,
+              user_id: ticket.user_id,
+              author_id: ticket.author_id,
+              requester: ticket.requester,
+              created_by: ticket.created_by
+            };
+            console.log(`Заявка ${index + 1} (${ticket.id}) - поля, связанные с пользователем:`, userRelatedFields);
+          });
+        }
+        
+        // Проверяем, что ответ содержит данные в правильном формате
+        if (!response.data || !Array.isArray(response.data)) {
+          console.warn(">>> WARNING: Неожиданный формат данных при получении заявок:", response.data);
+        }
+        
+        return {
+          ...response,
+          data: Array.isArray(response.data) ? response.data : []
+        };
+      })
+      .catch(error => {
+        console.error(">>> ERROR: Ошибка при получении заявок:", error.message);
+        console.error(">>> ERROR: Статус ошибки:", error.response?.status);
+        console.error(">>> ERROR: Детали ошибки:", error.response?.data);
         throw error;
       });
   },
   getById: (id) => api.get(`/tickets/${id}`),
-  create: (ticketData) => api.post('/tickets/', ticketData),
+  create: (ticketData) => {
+    console.log('Создание заявки с данными:', ticketData);
+    return api.post('/tickets/', ticketData)
+      .then(response => {
+        console.log('Заявка успешно создана:', response.data);
+        return response;
+      })
+      .catch(error => {
+        console.error('Ошибка при создании заявки:', error);
+        console.error('Статус ошибки:', error.response?.status);
+        console.error('Детали ошибки:', error.response?.data);
+        throw error;
+      });
+  },
   update: (id, ticketData) => api.put(`/tickets/${id}`, ticketData),
   delete: (id) => api.delete(`/tickets/${id}`),
   
@@ -98,7 +174,6 @@ export const ticketsAPI = {
   selfAssign: (ticketId) => api.post(`/tickets/${ticketId}/assign`, {}),
   updateStatus: (ticketId, status) => api.put(`/tickets/${ticketId}/status/${status}`, {}),
   closeTicket: (ticketId) => api.post(`/tickets/${ticketId}/close`, {}),
-  reopenTicket: (ticketId) => api.post(`/tickets/${ticketId}/reopen`, {}),
   
   // Комментарии к тикетам
   getComments: (ticketId) => api.get(`/tickets/${ticketId}/comments/`),
@@ -116,50 +191,10 @@ export const categoriesAPI = {
 
 // API для статистики
 export const statisticsAPI = {
-  getTicketStats: () => {
-    const token = localStorage.getItem('token');
-    return axios.get('/statistics/tickets-summary', {
-      baseURL: 'http://localhost:8000/api/v1',
-      maxRedirects: 5,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': token ? `Bearer ${token}` : undefined
-      }
-    });
-  },
-  getAgentPerformance: (days = 30) => {
-    const token = localStorage.getItem('token');
-    return axios.get(`/statistics/agent-performance?days=${days}`, {
-      baseURL: 'http://localhost:8000/api/v1',
-      maxRedirects: 5,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': token ? `Bearer ${token}` : undefined
-      }
-    });
-  },
-  getTicketsByPeriod: (period = 'month') => {
-    const token = localStorage.getItem('token');
-    return axios.get(`/statistics/tickets-by-period?period=${period}`, {
-      baseURL: 'http://localhost:8000/api/v1',
-      maxRedirects: 5,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': token ? `Bearer ${token}` : undefined
-      }
-    });
-  },
-  getUserActivity: (top = 10) => {
-    const token = localStorage.getItem('token');
-    return axios.get(`/statistics/user-activity?top=${top}`, {
-      baseURL: 'http://localhost:8000/api/v1',
-      maxRedirects: 5,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': token ? `Bearer ${token}` : undefined
-      }
-    });
-  },
+  getTicketStats: () => api.get('/statistics/tickets-summary'),
+  getAgentPerformance: (days = 30) => api.get(`/statistics/agent-performance?days=${days}`),
+  getTicketsByPeriod: (period = 'month') => api.get(`/statistics/tickets-by-period?period=${period}`),
+  getUserActivity: (top = 10) => api.get(`/statistics/user-activity?top=${top}`),
 };
 
-export default api; 
+export default api;
