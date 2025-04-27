@@ -1,23 +1,33 @@
 import { useEffect, useState, useCallback } from 'react';
 import { 
-  Typography, Grid, Paper, Box, CircularProgress,
-  Card, CardContent, CardHeader, Divider, Alert,
-  Button, IconButton, Avatar, List, ListItem, ListItemText,
-  ListItemAvatar, Chip, LinearProgress, Tooltip, AlertTitle
+  Typography, Box, CircularProgress, Alert, AlertTitle,
+  Button, Avatar, Chip, IconButton, SwipeableDrawer,
+  BottomNavigation, BottomNavigationAction, Paper, Fab,
+  Card, CardContent, Divider, Badge, List, ListItem,
+  ListItemText, ListItemAvatar, Skeleton, Grid
 } from '@mui/material';
 import { useTickets } from '../hooks/useTickets';
 import { useAuth } from '../context/AuthContext';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+
+// Иконки
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import DateRangeIcon from '@mui/icons-material/DateRange';
 import PersonIcon from '@mui/icons-material/Person';
+import EngineeringIcon from '@mui/icons-material/Engineering';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { useQueryClient } from '@tanstack/react-query';
+import AddIcon from '@mui/icons-material/Add';
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import ListAltIcon from '@mui/icons-material/ListAlt';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import CloseIcon from '@mui/icons-material/Close';
 
+// Константы для цветов
 const statusColors = {
   'new': '#ffa726',
   'in_progress': '#29b6f6',
@@ -30,7 +40,7 @@ const priorityColors = {
   'high': '#f44336'
 };
 
-// Функция для форматирования статуса
+// Функции форматирования
 const formatStatus = (status) => {
   const statusMap = {
     'new': 'Новая',
@@ -40,7 +50,6 @@ const formatStatus = (status) => {
   return statusMap[status] || status;
 };
 
-// Функция для форматирования приоритета
 const formatPriority = (priority) => {
   const priorityMap = {
     'low': 'Низкий',
@@ -50,33 +59,147 @@ const formatPriority = (priority) => {
   return priorityMap[priority] || priority;
 };
 
-// Функция для получения иконки статуса
-const getStatusIcon = (status) => {
-  switch (status) {
-    case 'new':
-      return <ErrorIcon />;
-    case 'in_progress':
-      return <AccessTimeIcon />;
-    case 'closed':
-      return <CheckCircleIcon />;
-    default:
-      return <AssignmentIcon />;
-  }
-};
+// Компонент статистической карточки
+const StatCard = ({ icon, count, label, color, onClick }) => (
+  <Card 
+    sx={{ 
+      borderRadius: 4, 
+      overflow: 'hidden', 
+      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+      mb: 2,
+      position: 'relative',
+      height: '100%'
+    }}
+    onClick={onClick}
+  >
+    <Box 
+      sx={{ 
+        p: 2,
+        display: 'flex',
+        alignItems: 'center',
+        background: `linear-gradient(145deg, ${color}20 0%, ${color}30 100%)`,
+        cursor: onClick ? 'pointer' : 'default',
+        height: '100%'
+      }}
+    >
+      <Box 
+        sx={{ 
+          width: 50, 
+          height: 50, 
+          borderRadius: '50%', 
+          backgroundColor: color,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: `0 4px 8px ${color}50`,
+          flexShrink: 0
+        }}
+      >
+        {icon}
+      </Box>
+      <Box sx={{ ml: 2 }}>
+        <Typography variant="h4" sx={{ fontWeight: 700, fontSize: '1.6rem' }}>
+          {count}
+        </Typography>
+        <Typography variant="body1" sx={{ color: 'text.secondary', fontSize: '0.9rem' }}>
+          {label}
+        </Typography>
+      </Box>
+    </Box>
+  </Card>
+);
+
+// Компонент карточки заявки
+const TicketCard = ({ ticket, onClick }) => (
+  <Card 
+    sx={{ 
+      mb: 2, 
+      borderRadius: 3, 
+      overflow: 'hidden',
+      border: `1px solid #f0f0f0`,
+      position: 'relative',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+      cursor: 'pointer'
+    }}
+    onClick={onClick}
+  >
+    <Box 
+      sx={{ 
+        width: '100%', 
+        height: 6, 
+        backgroundColor: priorityColors[ticket.priority] || '#ccc' 
+      }} 
+    />
+    <CardContent sx={{ p: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
+        <Avatar 
+          sx={{ 
+            bgcolor: statusColors[ticket.status] || '#ccc',
+            width: 40, 
+            height: 40,
+            mr: 1.5
+          }}
+        >
+          {ticket.status === 'new' && <ErrorIcon />}
+          {ticket.status === 'in_progress' && <AccessTimeIcon />}
+          {ticket.status === 'closed' && <CheckCircleIcon />}
+        </Avatar>
+        <Box sx={{ flex: 1 }}>
+          <Typography 
+            variant="subtitle1" 
+            sx={{ 
+              fontWeight: 600, 
+              mb: 1,
+              lineHeight: 1.3,
+              fontSize: '1rem'
+            }}
+          >
+            {ticket.title}
+          </Typography>
+          
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1.5 }}>
+            <Chip 
+              label={formatStatus(ticket.status)} 
+              size="small" 
+              sx={{ 
+                bgcolor: `${statusColors[ticket.status]}15`, 
+                color: statusColors[ticket.status],
+                fontWeight: 500,
+                fontSize: '0.75rem'
+              }}
+            />
+            <Chip 
+              label={formatPriority(ticket.priority)} 
+              size="small"
+              sx={{ 
+                bgcolor: `${priorityColors[ticket.priority]}15`, 
+                color: priorityColors[ticket.priority],
+                fontWeight: 500,
+                fontSize: '0.75rem'
+              }}
+            />
+          </Box>
+        </Box>
+      </Box>
+    </CardContent>
+  </Card>
+);
 
 const DashboardPage = () => {
+  const navigate = useNavigate();
   const { tickets, isLoading: isTicketsLoading, isError: isTicketsError } = useTickets();
   const { user, refreshUserData } = useAuth();
   const queryClient = useQueryClient();
-  const [refreshing, setRefreshing] = useState(false);
   
-  // Функция для обновления данных
+  const [refreshing, setRefreshing] = useState(false);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [navValue, setNavValue] = useState(0);
+  
+  // Обработчик обновления данных
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      // Обновляем данные пользователя
       await refreshUserData();
-      // Обновляем данные заявок
       await queryClient.invalidateQueries({ queryKey: ['tickets'] });
     } catch (error) {
       console.error('Ошибка при обновлении данных:', error);
@@ -84,453 +207,311 @@ const DashboardPage = () => {
       setRefreshing(false);
     }
   }, [refreshUserData, queryClient]);
+
+  // Обработчик перехода к заявке
+  const handleTicketClick = (ticketId) => {
+    navigate(`/tickets/${ticketId}`);
+  };
+
+  // Обработчик создания новой заявки
+  const handleCreateTicket = () => {
+    navigate('/tickets/new');
+  };
   
-  // Проверка, что пользователь существует и у него есть id
+  // Если пользователь не загружен
   if (!user) {
     return (
-      <Alert severity="error" sx={{ mt: 2 }}>
-        Ошибка получения данных пользователя. Пожалуйста, перезайдите в систему.
+      <Alert severity="error" sx={{ m: 2, borderRadius: 3 }}>
+        <AlertTitle>Ошибка аутентификации</AlertTitle>
+        Не удалось получить данные пользователя. Пожалуйста, войдите снова.
       </Alert>
     );
   }
   
-  // Работаем только с данными о заявках пользователя
-  const isLoading = isTicketsLoading;
-  const isError = isTicketsError;
-
-  if (isLoading) {
+  // Отображение загрузки
+  if (isTicketsLoading) {
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 4 }}>
-        <CircularProgress size={60} />
-        <Typography variant="h6" sx={{ mt: 2 }}>Загрузка данных...</Typography>
+      <Box sx={{ p: 2 }}>
+        <Skeleton variant="rectangular" height={120} sx={{ borderRadius: 4, mb: 2 }} />
+        <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+          <Skeleton variant="rectangular" height={100} width="50%" sx={{ borderRadius: 4 }} />
+          <Skeleton variant="rectangular" height={100} width="50%" sx={{ borderRadius: 4 }} />
+        </Box>
+        <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 4 }} />
       </Box>
     );
   }
 
-  if (isError) {
+  // Ошибка загрузки заявок
+  if (isTicketsError) {
     return (
-      <Alert severity="error" sx={{ mt: 2 }}>
-        Ошибка загрузки данных заявок. Пожалуйста, попробуйте позже.
+      <Alert severity="error" sx={{ m: 2, borderRadius: 3 }}>
+        <AlertTitle>Ошибка загрузки</AlertTitle>
+        Не удалось загрузить данные заявок. Пожалуйста, проверьте подключение и попробуйте позже.
       </Alert>
     );
   }
 
-  // Проверка, что tickets действительно массив
-  if (!Array.isArray(tickets)) {
-    return (
-      <Alert severity="error" sx={{ mt: 2 }}>
-        Ошибка получения списка заявок. Формат данных некорректен.
-      </Alert>
-    );
-  }
-
-  console.log('Текущий пользователь:', user);
-  console.log('Все заявки:', tickets);
+  // Убедимся, что tickets это массив
+  const safeTickets = Array.isArray(tickets) ? tickets : [];
   
-  // Выводим первую заявку для анализа структуры
-  if (tickets.length > 0) {
-    console.log('Структура заявки:', JSON.stringify(tickets[0], null, 2));
-  }
-  
-  // Получаем заявки, созданные текущим пользователем
-  const userTickets = tickets.filter(ticket => {
-    // Проверяем все возможные поля идентификации пользователя в заявке
+  // Фильтруем заявки текущего пользователя
+  const userTickets = safeTickets.filter(ticket => {
     return (
-      // Поле из API бэкенда
       ticket?.creator_id === user?.id ||
-      
-      // Другие возможные поля для совместимости
       ticket?.created_by_id === user?.id || 
       ticket?.requester_id === user?.id ||
       ticket?.user_id === user?.id ||
-      
-      // Проверка на email, если id не совпадают
       (ticket?.created_by?.email && user?.email && 
         ticket?.created_by?.email.toLowerCase() === user?.email.toLowerCase())
     );
   });
   
-  console.log('Отфильтрованные заявки пользователя:', userTickets);
+  // Заявки по статусам
+  const newTickets = userTickets.filter(t => t.status === 'new');
+  const inProgressTickets = userTickets.filter(t => t.status === 'in_progress');
+  const closedTickets = userTickets.filter(t => t.status === 'closed');
   
-  // Фильтрация заявок пользователя по статусам
-  const newTickets = userTickets.filter(ticket => 
-    ticket?.status?.toLowerCase() === 'new' || 
-    ticket?.status?.toLowerCase() === 'новая'
-  );
-  const inProgressTickets = userTickets.filter(ticket => 
-    ticket?.status?.toLowerCase() === 'in_progress' || 
-    ticket?.status?.toLowerCase() === 'в работе'
-  );
-  const closedTickets = userTickets.filter(ticket => 
-    ticket?.status?.toLowerCase() === 'closed' || 
-    ticket?.status?.toLowerCase() === 'закрыта'
-  );
-
-  // Создаем статистику на основе данных заявок пользователя
-  const stats = {
-    total: userTickets.length,
-    by_status: {
-      new: newTickets.length,
-      in_progress: inProgressTickets.length,
-      closed: closedTickets.length,
-    },
-    high_priority: userTickets.filter(ticket => ticket.priority === 'high').length
-  };
-
-  // Проверяем наличие необходимых полей в объекте статистики
-  const safeStats = {
-    total: stats.total || 0,
-    by_status: {
-      new: stats.by_status?.new || 0,
-      in_progress: stats.by_status?.in_progress || 0,
-      closed: stats.by_status?.closed || 0,
-    },
-    high_priority: stats.high_priority || 0
-  };
-
-  // Получаем активные заявки пользователя (не закрытые)
-  const activeUserTickets = userTickets.filter(ticket => 
-    ticket.status !== 'closed' && 
-    ticket.status?.toLowerCase() !== 'закрыта'
-  );
+  // Высокоприоритетные заявки
+  const highPriorityTickets = userTickets.filter(t => t.priority === 'high');
   
-  // Заявки пользователя с высоким приоритетом
-  const highPriorityUserTickets = activeUserTickets.filter(ticket => 
-    ticket.priority === 'high'
-  );
-
-  // Рассчитываем процент прогресса
-  const totalTicketsCount = safeStats.total || 1; // Избегаем деления на ноль
-  const resolvedPercentage = Math.round((safeStats.by_status.closed / totalTicketsCount) * 100);
-
-  // Проверка на отсутствие заявок для отображения предупреждения
-  const hasNoTickets = Array.isArray(tickets) && tickets.length === 0;
-
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1">
-          Информационная панель
-        </Typography>
-        <Box>
-          <Button 
-            variant="outlined"
-            color="primary"
-            startIcon={<RefreshIcon />}
-            onClick={handleRefresh}
-            disabled={refreshing}
-            sx={{ mr: 2 }}
-          >
-            {refreshing ? 'Обновление...' : 'Обновить'}
-          </Button>
-          <Button 
-            variant="contained" 
+    <>
+      <Box sx={{ p: 2, pb: 8 }}>
+        {/* Заголовок и кнопка обновления */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>
+            Мои заявки
+          </Typography>
+          <IconButton 
             color="primary" 
-            component={RouterLink} 
-            to="/tickets/new"
+            onClick={handleRefresh} 
+            disabled={refreshing}
+            sx={{ 
+              backgroundColor: 'rgba(25, 118, 210, 0.08)', 
+              width: 42, 
+              height: 42 
+            }}
           >
-            Создать заявку
-          </Button>
+            {refreshing ? <CircularProgress size={20} /> : <RefreshIcon />}
+          </IconButton>
+        </Box>
+        
+        {/* Приветствие пользователя */}
+        <Card 
+          sx={{ 
+            mb: 3, 
+            borderRadius: 4, 
+            background: 'linear-gradient(120deg, #2196f3 0%, #21cbf3 100%)',
+            color: 'white',
+            boxShadow: '0 4px 20px rgba(33, 150, 243, 0.3)'
+          }}
+        >
+          <CardContent sx={{ p: 2.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Avatar 
+                sx={{ 
+                  width: 56, 
+                  height: 56, 
+                  bgcolor: 'white', 
+                  color: '#2196f3',
+                  boxShadow: '0 4px 10px rgba(0,0,0,0.15)'
+                }}
+              >
+                <PersonIcon fontSize="large" />
+              </Avatar>
+              <Box sx={{ ml: 2 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.1rem' }}>
+                  {user?.name || 'Пользователь'}
+                </Typography>
+                <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.95rem' }}>
+                  {userTickets.length > 0 
+                    ? `У вас ${userTickets.length} заяв${userTickets.length === 1 ? 'ка' : 
+                       userTickets.length < 5 ? 'ки' : 'ок'}`
+                    : 'У вас пока нет заявок'}
+                  {highPriorityTickets.length > 0 && 
+                    `, ${highPriorityTickets.length} требу${highPriorityTickets.length === 1 ? 'ет' : 'ют'} внимания`}
+                </Typography>
+              </Box>
+            </Box>
+          </CardContent>
+        </Card>
+        
+        {/* Основная статистика */}
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600, fontSize: '1.05rem' }}>
+            Статистика заявок
+          </Typography>
+          <Grid container spacing={2}>
+            <Grid item xs={6}>
+              <StatCard 
+                icon={<AssignmentIcon sx={{ color: 'white', fontSize: '1.6rem' }} />} 
+                count={userTickets.length} 
+                label="Всего" 
+                color="#7e57c2"
+                onClick={() => navigate('/tickets')}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <StatCard 
+                icon={<ErrorIcon sx={{ color: 'white', fontSize: '1.6rem' }} />} 
+                count={newTickets.length} 
+                label="Новые" 
+                color={statusColors.new}
+                onClick={() => navigate('/tickets?status=new')}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <StatCard 
+                icon={<AccessTimeIcon sx={{ color: 'white', fontSize: '1.6rem' }} />} 
+                count={inProgressTickets.length} 
+                label="В работе" 
+                color={statusColors.in_progress}
+                onClick={() => navigate('/tickets?status=in_progress')}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <StatCard 
+                icon={<CheckCircleIcon sx={{ color: 'white', fontSize: '1.6rem' }} />} 
+                count={closedTickets.length} 
+                label="Закрыты" 
+                color={statusColors.closed}
+                onClick={() => navigate('/tickets?status=closed')}
+              />
+            </Grid>
+          </Grid>
+        </Box>
+        
+        {/* Последние заявки */}
+        <Box sx={{ mb: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: '1.05rem' }}>
+              Последние заявки
+            </Typography>
+            {userTickets.length > 5 && (
+              <Button 
+                size="small" 
+                component={RouterLink} 
+                to="/tickets"
+                sx={{ fontWeight: 500, fontSize: '0.85rem' }}
+              >
+                Все заявки
+              </Button>
+            )}
+          </Box>
+          
+          {userTickets.length === 0 ? (
+            <Alert 
+              severity="info" 
+              variant="outlined"
+              sx={{ borderRadius: 3 }}
+            >
+              У вас пока нет заявок. Создайте первую заявку!
+            </Alert>
+          ) : (
+            <>
+              {userTickets.slice(0, 5).map(ticket => (
+                <TicketCard 
+                  key={ticket.id} 
+                  ticket={ticket} 
+                  onClick={() => handleTicketClick(ticket.id)}
+                />
+              ))}
+            </>
+          )}
         </Box>
       </Box>
-
-      {/* Уведомление об отсутствии заявок */}
-      {hasNoTickets && (
-        <Alert severity="info" sx={{ mb: 3 }}>
-          <AlertTitle>Нет заявок</AlertTitle>
-          У вас пока нет созданных заявок. Вы можете создать новую заявку, нажав кнопку "Создать заявку".
-        </Alert>
-      )}
-
-      {/* Приветствие пользователя */}
-      <Paper 
-        elevation={3} 
+      
+      {/* Кнопка создания заявки */}
+      <Fab 
+        color="primary" 
         sx={{ 
-          p: 3, 
-          mb: 3, 
-          background: 'linear-gradient(120deg, #2196f3 0%, #21cbf3 100%)',
-          color: 'white'
+          position: 'fixed', 
+          bottom: 75, 
+          right: 20,
+          boxShadow: '0 4px 10px rgba(0,0,0,0.25)'
         }}
+        onClick={handleCreateTicket}
       >
-        <Grid container spacing={2} alignItems="center">
-          <Grid item>
-            <Avatar sx={{ width: 64, height: 64, bgcolor: 'white' }}>
-              <PersonIcon color="primary" sx={{ fontSize: 40 }} />
-            </Avatar>
-          </Grid>
-          <Grid item xs>
-            <Typography variant="h5">
-              Здравствуйте, {user?.name || 'пользователь'}!
-            </Typography>
-            <Typography variant="subtitle1">
-              {activeUserTickets.length === 0 ? (
-                'У вас нет активных заявок.'
-              ) : (
-                `У вас ${activeUserTickets.length} ${activeUserTickets.length === 1 ? 'активная заявка' : 
-                activeUserTickets.length >= 2 && activeUserTickets.length <= 4 ? 'активные заявки' : 'активных заявок'}${
-                  highPriorityUserTickets.length > 0 ? `, из них ${highPriorityUserTickets.length} с высоким приоритетом` : ''
-                }.`
-              )}
-            </Typography>
-          </Grid>
-          <Grid item>
-            <Chip 
-              label={`Заявки: ${resolvedPercentage}% решено`} 
-              color="default" 
-              sx={{ fontWeight: 'bold', bgcolor: 'rgba(255,255,255,0.9)', color: '#1976d2' }}
-            />
-          </Grid>
-        </Grid>
+        <AddIcon />
+      </Fab>
+      
+      {/* Навигация внизу экрана */}
+      <Paper 
+        sx={{ 
+          position: 'fixed', 
+          bottom: 0, 
+          left: 0, 
+          right: 0,
+          zIndex: 10,
+          borderRadius: '16px 16px 0 0',
+          overflow: 'hidden'
+        }} 
+        elevation={3}
+      >
+        <BottomNavigation
+          value={navValue}
+          onChange={(event, newValue) => {
+            setNavValue(newValue);
+            switch(newValue) {
+              case 0: // Dashboard
+                // Уже на дашборде
+                break;
+              case 1: // Все заявки
+                navigate('/tickets');
+                break;
+              case 2: // Профиль
+                navigate('/profile');
+                break;
+              default:
+                break;
+            }
+          }}
+          showLabels
+        >
+          <BottomNavigationAction 
+            label="Главная" 
+            icon={<DashboardIcon />} 
+          />
+          <BottomNavigationAction 
+            label="Заявки" 
+            icon={<ListAltIcon />} 
+          />
+          <BottomNavigationAction 
+            label="Профиль" 
+            icon={<AccountCircleIcon />} 
+          />
+        </BottomNavigation>
       </Paper>
       
-      {/* Основные показатели */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper elevation={3} sx={{ p: 2, height: '100%', position: 'relative', overflow: 'hidden' }}>
-            <Box sx={{ position: 'relative', zIndex: 2 }}>
-              <Typography variant="h6">Всего заявок</Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
-                <AssignmentIcon sx={{ fontSize: 40, color: '#673ab7', mr: 1 }} />
-                <Typography variant="h3">{safeStats.total}</Typography>
-              </Box>
-            </Box>
-            <Box sx={{ 
-              position: 'absolute', 
-              right: -20, 
-              bottom: -20, 
-              width: 100, 
-              height: 100, 
-              borderRadius: '50%', 
-              bgcolor: 'rgba(103, 58, 183, 0.1)',
-              zIndex: 1
-            }} />
-          </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper elevation={3} sx={{ p: 2, height: '100%', position: 'relative', overflow: 'hidden' }}>
-            <Box sx={{ position: 'relative', zIndex: 2 }}>
-              <Typography variant="h6" sx={{ color: statusColors.new }}>Новые заявки</Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
-                <ErrorIcon sx={{ fontSize: 40, color: statusColors.new, mr: 1 }} />
-                <Typography variant="h3">{safeStats.by_status.new}</Typography>
-              </Box>
-            </Box>
-            <Box sx={{ 
-              position: 'absolute', 
-              right: -20, 
-              bottom: -20, 
-              width: 100, 
-              height: 100, 
-              borderRadius: '50%', 
-              bgcolor: `${statusColors.new}20`,
-              zIndex: 1
-            }} />
-          </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper elevation={3} sx={{ p: 2, height: '100%', position: 'relative', overflow: 'hidden' }}>
-            <Box sx={{ position: 'relative', zIndex: 2 }}>
-              <Typography variant="h6" sx={{ color: statusColors.in_progress }}>В работе</Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
-                <AccessTimeIcon sx={{ fontSize: 40, color: statusColors.in_progress, mr: 1 }} />
-                <Typography variant="h3">{safeStats.by_status.in_progress}</Typography>
-              </Box>
-            </Box>
-            <Box sx={{ 
-              position: 'absolute', 
-              right: -20, 
-              bottom: -20, 
-              width: 100, 
-              height: 100, 
-              borderRadius: '50%', 
-              bgcolor: `${statusColors.in_progress}20`,
-              zIndex: 1
-            }} />
-          </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper elevation={3} sx={{ p: 2, height: '100%', position: 'relative', overflow: 'hidden' }}>
-            <Box sx={{ position: 'relative', zIndex: 2 }}>
-              <Typography variant="h6" sx={{ color: statusColors.closed }}>Закрытые заявки</Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
-                <CheckCircleIcon sx={{ fontSize: 40, color: statusColors.closed, mr: 1 }} />
-                <Typography variant="h3">{safeStats.by_status.closed}</Typography>
-              </Box>
-            </Box>
-            <Box sx={{ 
-              position: 'absolute', 
-              right: -20, 
-              bottom: -20, 
-              width: 100, 
-              height: 100, 
-              borderRadius: '50%', 
-              bgcolor: `${statusColors.closed}20`,
-              zIndex: 1
-            }} />
-          </Paper>
-        </Grid>
-      </Grid>
-
-      {/* Прогресс-бар по заявкам */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12}>
-          <Paper elevation={3} sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Общий прогресс заявок
-            </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <Typography variant="body2" sx={{ minWidth: 100 }}>
-                Выполнено:
-              </Typography>
-              <Box sx={{ width: '100%', mr: 1 }}>
-                <LinearProgress 
-                  variant="determinate" 
-                  value={resolvedPercentage}
-                  sx={{ 
-                    height: 10, 
-                    borderRadius: 5,
-                    backgroundColor: '#e0e0e0',
-                    '& .MuiLinearProgress-bar': {
-                      backgroundColor: statusColors.closed
-                    }
-                  }} 
-                />
-              </Box>
-              <Typography variant="body2" sx={{ minWidth: 45 }}>
-                {resolvedPercentage}%
-              </Typography>
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <Typography variant="body2" sx={{ minWidth: 100 }}>
-                В работе:
-              </Typography>
-              <Box sx={{ width: '100%', mr: 1 }}>
-                <LinearProgress 
-                  variant="determinate" 
-                  value={(safeStats.by_status.in_progress / totalTicketsCount) * 100}
-                  sx={{ 
-                    height: 10, 
-                    borderRadius: 5,
-                    backgroundColor: '#e0e0e0',
-                    '& .MuiLinearProgress-bar': {
-                      backgroundColor: statusColors.in_progress
-                    }
-                  }} 
-                />
-              </Box>
-              <Typography variant="body2" sx={{ minWidth: 45 }}>
-                {Math.round((safeStats.by_status.in_progress / totalTicketsCount) * 100)}%
-              </Typography>
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Typography variant="body2" sx={{ minWidth: 100 }}>
-                Новые:
-              </Typography>
-              <Box sx={{ width: '100%', mr: 1 }}>
-                <LinearProgress 
-                  variant="determinate" 
-                  value={(safeStats.by_status.new / totalTicketsCount) * 100}
-                  sx={{ 
-                    height: 10, 
-                    borderRadius: 5,
-                    backgroundColor: '#e0e0e0',
-                    '& .MuiLinearProgress-bar': {
-                      backgroundColor: statusColors.new
-                    }
-                  }} 
-                />
-              </Box>
-              <Typography variant="body2" sx={{ minWidth: 45 }}>
-                {Math.round((safeStats.by_status.new / totalTicketsCount) * 100)}%
-              </Typography>
-            </Box>
-          </Paper>
-        </Grid>
-      </Grid>
-
-      {/* Контейнеры нижнего уровня */}
-      <Grid container spacing={3}>
-        {/* Последние заявки */}
-        <Grid item xs={12}>
-          <Card elevation={3}>
-            <CardHeader 
-              title={
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <AssignmentIcon sx={{ mr: 1 }} />
-                  <Typography variant="h6">Последние заявки</Typography>
-                </Box>
-              } 
-            />
-            <Divider />
-            <CardContent sx={{ pt: 0 }}>
-              {userTickets.length > 0 ? (
-                <List>
-                  {userTickets.slice(0, 10).map((ticket) => (
-                    <ListItem 
-                      key={ticket.id} 
-                      sx={{ 
-                        mb: 1, 
-                        bgcolor: '#f5f5f5', 
-                        borderRadius: 1,
-                        borderLeft: `4px solid ${priorityColors[ticket.priority] || '#777'}` 
-                      }}
-                      component={RouterLink}
-                      to={`/tickets/${ticket.id}`}
-                      style={{ textDecoration: 'none', color: 'inherit' }}
-                    >
-                      <ListItemAvatar>
-                        <Avatar sx={{ bgcolor: statusColors[ticket.status] || '#777' }}>
-                          {getStatusIcon(ticket.status)}
-                        </Avatar>
-                      </ListItemAvatar>
-                      <ListItemText 
-                        primary={ticket.title}
-                        secondary={
-                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 0.5 }}>
-                            <Chip 
-                              label={formatStatus(ticket.status)} 
-                              size="small" 
-                              sx={{ bgcolor: `${statusColors[ticket.status]}30`, color: statusColors[ticket.status] }}
-                            />
-                            <Chip 
-                              label={formatPriority(ticket.priority)} 
-                              size="small"
-                              sx={{ bgcolor: `${priorityColors[ticket.priority]}30`, color: priorityColors[ticket.priority] }}
-                            />
-                            <Chip 
-                              label={ticket.created_by?.name || 'Неизвестно'} 
-                              size="small"
-                              icon={<PersonIcon />}
-                              variant="outlined"
-                              color="default"
-                            />
-                          </Box>
-                        }
-                      />
-                    </ListItem>
-                  ))}
-                </List>
-              ) : (
-                <Typography sx={{ textAlign: 'center', py: 3 }} color="textSecondary">
-                  Заявок нет.
-                </Typography>
-              )}
-              {userTickets.length > 10 && (
-                <Box sx={{ textAlign: 'center', mt: 2 }}>
-                  <Button 
-                    variant="outlined" 
-                    component={RouterLink} 
-                    to="/tickets"
-                  >
-                    Показать все заявки ({userTickets.length})
-                  </Button>
-                </Box>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-    </Box>
+      {/* Выдвижной фильтр */}
+      <SwipeableDrawer
+        anchor="bottom"
+        open={filterDrawerOpen}
+        onClose={() => setFilterDrawerOpen(false)}
+        onOpen={() => setFilterDrawerOpen(true)}
+        swipeAreaWidth={0}
+        disableSwipeToOpen
+        sx={{
+          '& .MuiDrawer-paper': {
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            maxHeight: '80%'
+          },
+        }}
+      >
+        <Box sx={{ p: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6">Фильтры</Typography>
+            <IconButton onClick={() => setFilterDrawerOpen(false)}>
+              <CloseIcon />
+            </IconButton>
+          </Box>
+          <Divider sx={{ mb: 2 }} />
+          {/* Здесь будут фильтры */}
+        </Box>
+      </SwipeableDrawer>
+    </>
   );
 };
 

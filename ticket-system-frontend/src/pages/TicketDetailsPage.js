@@ -99,10 +99,16 @@ const TicketDetailsPage = () => {
     addComment 
   } = useTicket(id);
 
-  // Отладочный вывод
+  // Получение тикета из кэша
   useEffect(() => {
     if (ticket) {
-      console.log("Данные тикета:", ticket);
+      console.log("Данные заявки:", ticket);
+      console.log("Ответственный (assigned_to_id):", ticket.assigned_to_id);
+      if (ticket.assigned_to) {
+        console.log("Ответственный (объект):", ticket.assigned_to);
+      } else {
+        console.log("Отсутствует данные об объекте assigned_to");
+      }
     }
   }, [ticket]);
 
@@ -149,7 +155,7 @@ const TicketDetailsPage = () => {
   const getAssigneeName = (assignedToId) => {
     if (!assignedToId) return "Не назначен";
     const assignee = getUserById(assignedToId);
-    return assignee?.full_name || "Не указан";
+    return assignee?.full_name || "Не найден в системе";
   };
 
   // Обработчики действий
