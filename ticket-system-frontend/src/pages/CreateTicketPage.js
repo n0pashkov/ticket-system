@@ -1,15 +1,29 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Typography, Box, Paper, TextField, Button,
+  Typography, Box, TextField, Button,
   FormControl, InputLabel, Select, MenuItem,
-  Grid, Alert, CircularProgress, Snackbar,
-  Container
+  Alert, CircularProgress, Snackbar, IconButton,
+  Card, CardContent, Avatar, Divider, useTheme, useMediaQuery
 } from '@mui/material';
-import MuiAlert from '@mui/material/Alert';
 import { useTickets } from '../hooks/useTickets';
 import { useAuth } from '../context/AuthContext';
 import useCategories from '../hooks/useCategories';
+
+// Иконки
+import AddCircleIcon from '@mui/icons-material/AddCircle';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import NoteAddIcon from '@mui/icons-material/NoteAdd';
+import FlagIcon from '@mui/icons-material/Flag';
+import CategoryIcon from '@mui/icons-material/Category';
+import SendIcon from '@mui/icons-material/Send';
+
+// Константы для цветов
+const priorityColors = {
+  'low': '#8bc34a',
+  'medium': '#ffa726',
+  'high': '#f44336'
+};
 
 const CreateTicketPage = () => {
   const navigate = useNavigate();
@@ -19,19 +33,25 @@ const CreateTicketPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   // Состояние формы
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     priority: 'medium',
-    category_id: ''
+    category_id: '',
+    room_number: ''
   });
 
   // Валидация
   const [formErrors, setFormErrors] = useState({
     title: '',
-    description: ''
+    description: '',
+    category_id: '',
+    room_number: ''
   });
 
   // Обработчик изменения полей формы
@@ -49,6 +69,11 @@ const CreateTicketPage = () => {
         [name]: ''
       }));
     }
+
+    // Сбросить общую ошибку при выборе категории
+    if (name === 'category_id' && value) {
+      setError('');
+    }
   };
 
   // Валидация формы
@@ -56,7 +81,9 @@ const CreateTicketPage = () => {
     let valid = true;
     const errors = {
       title: '',
-      description: ''
+      description: '',
+      category_id: '',
+      room_number: ''
     };
 
     if (!formData.title.trim()) {
@@ -72,6 +99,17 @@ const CreateTicketPage = () => {
       valid = false;
     } else if (formData.description.length < 10) {
       errors.description = 'Описание должно содержать не менее 10 символов';
+      valid = false;
+    }
+
+    if (!formData.category_id) {
+      errors.category_id = 'Выбор категории обязателен';
+      valid = false;
+      setError('Необходимо выбрать категорию');
+    }
+    
+    if (!formData.room_number.trim()) {
+      errors.room_number = 'Номер кабинета обязателен';
       valid = false;
     }
 
@@ -140,169 +178,311 @@ const CreateTicketPage = () => {
 
   // Отмена и возврат к списку заявок
   const handleCancel = () => {
-    navigate('/tickets');
+    navigate('/');
+  };
+
+  // Получение названия выбранной категории
+  const getSelectedCategoryName = () => {
+    if (!formData.category_id || !categories || categories.length === 0) return "Не выбрана";
+    const category = categories.find(cat => cat.id === formData.category_id);
+    return category ? category.name : "Не выбрана";
   };
 
   return (
-    <Container maxWidth="md" sx={{ mt: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1">
-          Создание новой заявки
-        </Typography>
+    <Box sx={{ 
+      width: '100%', 
+      maxWidth: '100vw', 
+      overflow: 'hidden',
+      position: 'relative',
+      boxSizing: 'border-box',
+      p: 2
+    }}>
+      {/* Заголовок и кнопка назад */}
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: 2,
+        width: '100%'
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <IconButton 
+            color="primary" 
+            onClick={handleCancel}
+            sx={{ 
+              mr: 1,
+              backgroundColor: 'rgba(25, 118, 210, 0.08)'
+            }}
+          >
+            <ArrowBackIcon />
+          </IconButton>
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>
+            Новая заявка
+          </Typography>
+        </Box>
       </Box>
 
-      <Paper sx={{ p: 4 }}>
-        {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
-            {error}
-          </Alert>
-        )}
+      {error && (
+        <Alert 
+          severity="error" 
+          sx={{ mb: 3, borderRadius: 2 }}
+          onClose={() => setError('')}
+        >
+          {error}
+        </Alert>
+      )}
 
-        <form onSubmit={handleSubmit}>
-          <Grid container spacing={3} justifyContent="center" direction="column" alignItems="center">
-            <Grid item xs={12} md={10}>
-              <TextField
-                fullWidth
-                label="Заголовок заявки"
-                name="title"
-                value={formData.title}
-                onChange={handleChange}
-                error={!!formErrors.title}
-                helperText={formErrors.title}
-                required
-                disabled={loading}
-              />
-            </Grid>
+      <form onSubmit={handleSubmit}>
+        {/* Информационная карточка */}
+        <Card sx={{ 
+          mb: 3,
+          borderRadius: 4, 
+          background: 'linear-gradient(120deg, #2196f3 0%, #21cbf3 100%)',
+          color: 'white',
+          boxShadow: '0 4px 20px rgba(33, 150, 243, 0.3)',
+        }}>
+          <CardContent sx={{ p: 2.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Avatar 
+                sx={{ 
+                  width: 56, 
+                  height: 56, 
+                  bgcolor: 'white', 
+                  color: '#2196f3',
+                  boxShadow: '0 4px 10px rgba(0,0,0,0.15)'
+                }}
+              >
+                <NoteAddIcon fontSize="large" />
+              </Avatar>
+              <Box sx={{ ml: 2 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.1rem' }}>
+                  Создание заявки
+                </Typography>
+                <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.95rem' }}>
+                  Опишите вашу проблему или запрос
+                </Typography>
+              </Box>
+            </Box>
+          </CardContent>
+        </Card>
 
-            <Grid item xs={12} md={10}>
-              <TextField
-                fullWidth
-                label="Описание проблемы"
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
-                error={!!formErrors.description}
-                helperText={formErrors.description}
-                multiline
-                rows={4}
-                required
-                disabled={loading}
-              />
-            </Grid>
+        {/* Поля ввода */}
+        <Box sx={{ mb: 3 }}>
+          <TextField
+            fullWidth
+            variant="outlined"
+            label="Заголовок заявки"
+            name="title"
+            value={formData.title}
+            onChange={handleChange}
+            error={!!formErrors.title}
+            helperText={formErrors.title}
+            required
+            disabled={loading}
+            sx={{ 
+              mb: 3, 
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+              }
+            }}
+            InputProps={{
+              sx: { borderRadius: 2 }
+            }}
+          />
 
-            <Grid item xs={12} md={10}>
-              <FormControl fullWidth disabled={loading} variant="outlined">
-                <InputLabel id="priority-label" shrink>Приоритет</InputLabel>
-                <Select
-                  labelId="priority-label"
-                  name="priority"
-                  value={formData.priority}
-                  onChange={handleChange}
-                  label="Приоритет"
-                  notched
-                  sx={{ 
-                    minHeight: '56px',
-                    '& .MuiSelect-select': {
-                      paddingTop: '16px',
-                      display: 'flex',
-                      alignItems: 'center'
-                    },
-                    '& .MuiInputLabel-root': {
-                      background: '#fff',
-                      padding: '0 4px'
-                    }
-                  }}
+          <TextField
+            fullWidth
+            label="Описание проблемы"
+            name="description"
+            value={formData.description}
+            onChange={handleChange}
+            error={!!formErrors.description}
+            helperText={formErrors.description}
+            multiline
+            rows={isMobile ? 4 : 6}
+            required
+            disabled={loading}
+            sx={{ 
+              mb: 3,
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+              } 
+            }}
+            InputProps={{
+              sx: { borderRadius: 2 }
+            }}
+          />
+          
+          <TextField
+            fullWidth
+            variant="outlined"
+            label="Номер кабинета"
+            name="room_number"
+            value={formData.room_number}
+            onChange={handleChange}
+            disabled={loading}
+            error={!!formErrors.room_number}
+            helperText={formErrors.room_number}
+            required
+            sx={{ 
+              mb: 3, 
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+              }
+            }}
+            InputProps={{
+              sx: { borderRadius: 2 }
+            }}
+            placeholder="Например: 101, 202A"
+          />
+          
+          <Box sx={{ 
+            display: 'grid', 
+            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, 
+            gap: 2,
+            mb: 3
+          }}>
+            <Card sx={{ 
+              borderRadius: 3, 
+              border: `1px solid ${theme.palette.divider}`,
+              boxShadow: 'none',
+            }}>
+              <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+                  <FlagIcon color="action" sx={{ mr: 1 }} />
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                    Приоритет
+                  </Typography>
+                </Box>
+                <FormControl fullWidth disabled={loading} variant="outlined" size="small">
+                  <Select
+                    name="priority"
+                    value={formData.priority}
+                    onChange={handleChange}
+                    displayEmpty
+                    sx={{ 
+                      borderRadius: 2,
+                      '.MuiOutlinedInput-notchedOutline': {
+                        borderColor: priorityColors[formData.priority] + '80',
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: priorityColors[formData.priority],
+                      },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        borderColor: priorityColors[formData.priority],
+                      },
+                    }}
+                  >
+                    <MenuItem value="low">Низкий</MenuItem>
+                    <MenuItem value="medium">Средний</MenuItem>
+                    <MenuItem value="high">Высокий</MenuItem>
+                  </Select>
+                </FormControl>
+              </CardContent>
+            </Card>
+
+            <Card sx={{ 
+              borderRadius: 3, 
+              border: `1px solid ${theme.palette.divider}`,
+              boxShadow: 'none',
+            }}>
+              <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+                  <CategoryIcon color="action" sx={{ mr: 1 }} />
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                    Категория
+                  </Typography>
+                </Box>
+                <FormControl 
+                  fullWidth 
+                  disabled={loading || categoriesLoading} 
+                  variant="outlined" 
+                  size="small"
+                  error={!!formErrors.category_id}
                 >
-                  <MenuItem value="low">Низкий</MenuItem>
-                  <MenuItem value="medium">Средний</MenuItem>
-                  <MenuItem value="high">Высокий</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid item xs={12} md={10}>
-              <FormControl fullWidth disabled={loading || categoriesLoading} variant="outlined">
-                <InputLabel id="category-label" shrink>Категория</InputLabel>
-                <Select
-                  labelId="category-label"
-                  name="category_id"
-                  value={formData.category_id}
-                  onChange={handleChange}
-                  label="Категория"
-                  notched
-                  displayEmpty
-                  sx={{ 
-                    minHeight: '56px',
-                    '& .MuiSelect-select': {
-                      paddingTop: '16px',
-                      display: 'flex',
-                      alignItems: 'center'
-                    },
-                    '& .MuiInputLabel-root': {
-                      background: '#fff',
-                      padding: '0 4px'
-                    }
-                  }}
-                  renderValue={(selected) => {
-                    if (!selected) {
-                      return <span style={{ color: '#757575' }}>Не выбрана</span>;
-                    }
-                    const selectedCategory = categories.find(cat => cat.id === selected);
-                    return selectedCategory ? selectedCategory.name : 'Не выбрана';
-                  }}
-                >
-                  <MenuItem value="" sx={{ minHeight: '40px' }}>
-                    <em>Не выбрана</em>
-                  </MenuItem>
-                  {categories.map((category) => (
-                    <MenuItem key={category.id} value={category.id} sx={{ minHeight: '40px' }}>
-                      {category.name}
+                  <Select
+                    name="category_id"
+                    value={formData.category_id}
+                    onChange={handleChange}
+                    displayEmpty
+                    sx={{ borderRadius: 2 }}
+                    renderValue={(selected) => {
+                      return getSelectedCategoryName();
+                    }}
+                  >
+                    <MenuItem value="" disabled>
+                      <em>Выберите категорию</em>
                     </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
+                    {categories && categories.map((category) => (
+                      <MenuItem key={category.id} value={category.id}>
+                        {category.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  {formErrors.category_id && (
+                    <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5 }}>
+                      {formErrors.category_id}
+                    </Typography>
+                  )}
+                </FormControl>
+              </CardContent>
+            </Card>
+          </Box>
+        </Box>
 
-            <Grid item xs={12} md={10} sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 3 }}>
-              <Button 
-                variant="outlined" 
-                onClick={handleCancel}
-                disabled={loading}
-                size="large"
-              >
-                Отмена
-              </Button>
-              <Button 
-                type="submit" 
-                variant="contained" 
-                color="primary"
-                disabled={loading}
-                size="large"
-              >
-                {loading ? <CircularProgress size={24} /> : 'Создать заявку'}
-              </Button>
-            </Grid>
-          </Grid>
-        </form>
-      </Paper>
+        {/* Кнопки действий */}
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between',
+          flexDirection: { xs: 'column', sm: 'row' },
+          gap: 2
+        }}>
+          <Button 
+            variant="outlined" 
+            color="primary" 
+            onClick={handleCancel}
+            disabled={loading}
+            startIcon={<ArrowBackIcon />}
+            sx={{ 
+              borderRadius: 2, 
+              py: 1.2,
+              width: { xs: '100%', sm: 'auto' },
+              order: { xs: 2, sm: 1 }
+            }}
+          >
+            Отмена
+          </Button>
+          <Button 
+            type="submit" 
+            variant="contained" 
+            color="primary"
+            disabled={loading}
+            endIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SendIcon />}
+            sx={{ 
+              borderRadius: 2, 
+              py: 1.2,
+              width: { xs: '100%', sm: 'auto' },
+              order: { xs: 1, sm: 2 },
+              boxShadow: '0 4px 10px rgba(33, 150, 243, 0.3)'
+            }}
+          >
+            {loading ? 'Отправка...' : 'Отправить заявку'}
+          </Button>
+        </Box>
+      </form>
 
       {/* Уведомление об успешном создании */}
       <Snackbar 
         open={success} 
         autoHideDuration={5000} 
         onClose={handleSuccessClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
-        <MuiAlert 
-          elevation={6} 
-          variant="filled" 
-          severity="success"
-          onClose={handleSuccessClose}
-        >
-          Заявка успешно создана!
-        </MuiAlert>
+        <Alert onClose={handleSuccessClose} severity="success" variant="filled">
+          Заявка успешно создана! Перенаправление...
+        </Alert>
       </Snackbar>
-    </Container>
+    </Box>
   );
 };
 

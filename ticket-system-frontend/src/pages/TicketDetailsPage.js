@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTicket } from '../hooks/useTickets';
 import { ticketsAPI } from '../api/api';
 import { useUsers } from '../hooks/useUsers';
+import EditIcon from '@mui/icons-material/Edit';
 
 // Material UI компоненты
 import {
@@ -27,6 +28,10 @@ import {
   Avatar,
   Snackbar,
   Container,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 
 // Material UI иконки
@@ -89,6 +94,18 @@ const TicketDetailsPage = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const { users, getUserById } = useUsers();
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    title: '',
+    description: '',
+    priority: '',
+    room_number: ''
+  });
+  const [editFormErrors, setEditFormErrors] = useState({
+    title: '',
+    description: '',
+    room_number: ''
+  });
 
   const { 
     ticket, 
@@ -109,6 +126,12 @@ const TicketDetailsPage = () => {
       } else {
         console.log("Отсутствует данные об объекте assigned_to");
       }
+      setEditFormData({
+        title: ticket.title,
+        description: ticket.description,
+        priority: ticket.priority,
+        room_number: ticket.room_number || ''
+      });
     }
   }, [ticket]);
 
@@ -213,6 +236,64 @@ const TicketDetailsPage = () => {
     }
   };
 
+  const handleEditTicket = async () => {
+    // Валидация формы
+    let valid = true;
+    const errors = {
+      title: '',
+      description: '',
+      room_number: ''
+    };
+
+    if (!editFormData.title.trim()) {
+      errors.title = 'Заголовок обязателен';
+      valid = false;
+    }
+
+    if (!editFormData.description.trim()) {
+      errors.description = 'Описание обязательно';
+      valid = false;
+    }
+    
+    if (!editFormData.room_number.trim()) {
+      errors.room_number = 'Номер кабинета обязателен';
+      valid = false;
+    }
+
+    setEditFormErrors(errors);
+    
+    if (!valid) return;
+    
+    try {
+      setActionError(null);
+      await ticketsAPI.update(id, editFormData);
+      setSuccessMessage('Заявка успешно обновлена');
+      setEditDialogOpen(false);
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } catch (err) {
+      console.error('Ошибка при обновлении заявки:', err);
+      setActionError('Не удалось обновить заявку.');
+    }
+  };
+  
+  const handleEditFormChange = (e) => {
+    const { name, value } = e.target;
+    setEditFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    
+    // Сбросить ошибку для этого поля при изменении
+    if (editFormErrors[name]) {
+      setEditFormErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
+  };
+
   // Проверка прав доступа
   const isAdmin = user?.role === 'admin';
   const isAgent = user?.role === 'agent';
@@ -230,6 +311,7 @@ const TicketDetailsPage = () => {
   const canCompleteTicket = (isAdmin || (isAgent && isAssigned)) && 
                          (ticket?.status === 'in_progress' || isAdmin);
   const canDeleteTicket = isAdmin || isCreator;
+  const canEditTicket = isAdmin || isCreator || (isAgent && isAssigned);
 
   if (isLoading) return (
     <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
@@ -250,7 +332,7 @@ const TicketDetailsPage = () => {
   );
 
   return (
-    <Container maxWidth="lg" sx={{ py: 3 }}>
+    <Container maxWidth="lg" sx={{ py: 4 }}>
       {/* Заголовок и кнопка назад */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" component="h1" display="flex" alignItems="center">
@@ -437,6 +519,19 @@ const TicketDetailsPage = () => {
                     УДАЛИТЬ ЗАЯВКУ
                   </Button>
                 )}
+                
+                {/* Кнопка редактирования заявки */}
+                {canEditTicket && (
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    color="primary"
+                    startIcon={<EditIcon />}
+                    onClick={() => setEditDialogOpen(true)}
+                  >
+                    РЕДАКТИРОВАТЬ ЗАЯВКУ
+                  </Button>
+                )}
               </Box>
               
               {!canDeleteTicket && !canTakeTicket && !canCloseTicket && (
@@ -610,6 +705,79 @@ const TicketDetailsPage = () => {
           </Button>
           <Button onClick={handleDeleteTicket} color="error" startIcon={<DeleteIcon />}>
             {isAdmin ? 'Удалить' : 'Скрыть'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Диалог редактирования заявки */}
+      <Dialog
+        open={editDialogOpen}
+        onClose={() => setEditDialogOpen(false)}
+        fullWidth
+        maxWidth="md"
+      >
+        <DialogTitle>Редактирование заявки</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            variant="outlined"
+            label="Заголовок заявки"
+            name="title"
+            value={editFormData.title}
+            onChange={handleEditFormChange}
+            error={!!editFormErrors.title}
+            helperText={editFormErrors.title}
+            required
+            margin="normal"
+          />
+          
+          <TextField
+            fullWidth
+            label="Описание проблемы"
+            name="description"
+            value={editFormData.description}
+            onChange={handleEditFormChange}
+            error={!!editFormErrors.description}
+            helperText={editFormErrors.description}
+            multiline
+            rows={6}
+            required
+            margin="normal"
+          />
+          
+          <TextField
+            fullWidth
+            variant="outlined"
+            label="Номер кабинета"
+            name="room_number"
+            value={editFormData.room_number}
+            onChange={handleEditFormChange}
+            error={!!editFormErrors.room_number}
+            helperText={editFormErrors.room_number}
+            required
+            margin="normal"
+            placeholder="Например: 101, 202A"
+          />
+          
+          <FormControl fullWidth margin="normal">
+            <InputLabel id="priority-label">Приоритет</InputLabel>
+            <Select
+              labelId="priority-label"
+              name="priority"
+              value={editFormData.priority}
+              onChange={handleEditFormChange}
+              label="Приоритет"
+            >
+              <MenuItem value="low">Низкий</MenuItem>
+              <MenuItem value="medium">Средний</MenuItem>
+              <MenuItem value="high">Высокий</MenuItem>
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditDialogOpen(false)}>Отмена</Button>
+          <Button onClick={handleEditTicket} color="primary" variant="contained">
+            Сохранить
           </Button>
         </DialogActions>
       </Dialog>

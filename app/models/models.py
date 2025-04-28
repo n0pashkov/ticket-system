@@ -122,6 +122,7 @@ class Ticket(Base):
     status = Column(String, default=TicketStatus.NEW)
     priority = Column(String, default="medium")  # low, medium, high
     resolution = Column(Text, nullable=True)
+    room_number = Column(String, nullable=True)  # Добавленное поле для номера кабинета
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     is_hidden_for_creator = Column(Boolean, default=False)  # Флаг для "мягкого удаления"

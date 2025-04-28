@@ -24,6 +24,7 @@ def create_ticket(
         description=ticket.description,
         priority=ticket.priority,
         category_id=ticket.category_id,
+        room_number=ticket.room_number,
         creator_id=current_user.id
     )
     db.add(db_ticket)
@@ -92,6 +93,7 @@ def read_tickets(
                     "creator_id": db_ticket.creator_id,
                     "assigned_to_id": db_ticket.assigned_to_id,
                     "resolution": db_ticket.resolution,
+                    "room_number": db_ticket.room_number,
                     "comments": comment_ids
                 }
                 tickets.append(ticket_dict)
@@ -343,6 +345,7 @@ def assign_ticket_to_current_agent(
         "creator_id": db_ticket.creator_id,
         "assigned_to_id": db_ticket.assigned_to_id,
         "resolution": db_ticket.resolution,
+        "room_number": db_ticket.room_number,
         "comments": comment_ids
     }
     

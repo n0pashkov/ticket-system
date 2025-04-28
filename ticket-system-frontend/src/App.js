@@ -16,6 +16,7 @@ import ProfilePage from './pages/ProfilePage';
 import CreateTicketPage from './pages/CreateTicketPage';
 import CategoryManagementPage from './pages/CategoryManagementPage';
 import TicketDetailsPage from './pages/TicketDetailsPage';
+import ManageUsersPage from './pages/ManageUsersPage';
 
 // Components
 import Layout from './components/Layout';
@@ -176,6 +177,16 @@ function App() {
                   <ProtectedRoute>
                     <Layout>
                       <CategoryManagementPage />
+                    </Layout>
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/manage-users" 
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <ManageUsersPage />
                     </Layout>
                   </ProtectedRoute>
                 } 

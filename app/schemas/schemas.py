@@ -32,6 +32,7 @@ class TicketBase(BaseModel):
     description: str
     priority: str = "medium"
     category_id: Optional[int] = None
+    room_number: str
 
 
 # Схема для создания заявки
@@ -48,6 +49,7 @@ class TicketUpdate(BaseModel):
     category_id: Optional[int] = None
     assigned_to_id: Optional[int] = None
     resolution: Optional[str] = None
+    room_number: Optional[str] = None
 
 
 # Схема для отображения заявки

@@ -177,6 +177,9 @@ const TicketsPage = () => {
 
   // Проверка, является ли пользователь агентом или администратором
   const isAgentOrAdmin = user && ['agent', 'admin'].includes(user.role);
+  
+  // Проверка, является ли пользователь администратором
+  const isAdmin = user && user.role === 'admin';
 
   // Обработчик взятия заявки в работу
   const handleSelfAssign = async (ticketId, event) => {
@@ -327,13 +330,13 @@ const TicketsPage = () => {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>ID</TableCell>
+              {isAdmin && <TableCell>ID</TableCell>}
               <TableCell>Заголовок</TableCell>
+              <TableCell>Кабинет</TableCell>
               <TableCell>Статус</TableCell>
               <TableCell>Приоритет</TableCell>
               <TableCell>Исполнитель</TableCell>
               <TableCell>Создана</TableCell>
-              <TableCell>Действия</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -348,8 +351,9 @@ const TicketsPage = () => {
                     '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.04)' }
                   }}
                 >
-                  <TableCell>{ticket.id}</TableCell>
+                  {isAdmin && <TableCell>{ticket.id}</TableCell>}
                   <TableCell>{ticket.title}</TableCell>
+                  <TableCell>{ticket.room_number || "—"}</TableCell>
                   <TableCell>
                     <Chip 
                       label={formatStatus(ticket.status)}
@@ -383,55 +387,11 @@ const TicketsPage = () => {
                   <TableCell>
                     {new Date(ticket.created_at).toLocaleDateString()}
                   </TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}> {/* Предотвращаем срабатывание клика по строке */}
-                    {/* Удалена иконка детальной информации (EditIcon) */}
-                    
-                    {/* Кнопка взятия в работу (только для агентов/админов и новых заявок) */}
-                    {isAgentOrAdmin && ticket.status === 'new' && !ticket.assigned_to_id && (
-                      <Tooltip title="Взять в работу">
-                        <IconButton
-                          size="small"
-                          color="success"
-                          onClick={(e) => handleSelfAssign(ticket.id, e)}
-                        >
-                          <AssignmentIndIcon />
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                    
-                    {/* Кнопка для отметки заявки как выполненная (только для агентов/админов и заявок в работе) */}
-                    {isAgentOrAdmin && ticket.status === 'in_progress' && 
-                     (user.role === 'admin' || ticket.assigned_to_id === user.id) && (
-                      <Tooltip title="Отметить как выполненную">
-                        <IconButton
-                          size="small"
-                          color="success"
-                          onClick={(e) => handleCloseTicket(ticket.id, e)}
-                        >
-                          <DoneIcon />
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                    
-                    {/* Показываем кнопку удаления для администраторов и создателей заявок */}
-                    {(user && user.role === 'admin') || (ticket.creator_id === user?.id) ? (
-                      <IconButton 
-                        size="small" 
-                        color="error"
-                        onClick={(e) => {
-                          e.stopPropagation(); // Предотвращаем срабатывание клика по строке
-                          openDeleteDialog(ticket);
-                        }}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    ) : null}
-                  </TableCell>
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={7} align="center">
+                <TableCell colSpan={isAdmin ? 7 : 6} align="center">
                   Заявки не найдены.
                 </TableCell>
               </TableRow>
