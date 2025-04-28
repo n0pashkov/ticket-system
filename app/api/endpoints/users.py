@@ -1,8 +1,9 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 
-from app.core.security import get_password_hash, get_current_active_user
+from app.core.security import get_password_hash, get_current_active_user, verify_password
 from app.core.dependencies import get_current_admin
 from app.db.database import get_db
 from app.models.models import User, UserRole
@@ -10,6 +11,11 @@ from app.schemas.schemas import User as UserSchema
 from app.schemas.schemas import UserCreate, UserUpdate, UserMe
 
 router = APIRouter()
+
+# Новая модель для смены пароля
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
 
 
 # Регистрация нового пользователя (доступно только администраторам)
@@ -76,6 +82,40 @@ def read_users_basic(
 @router.get("/me/", response_model=UserMe)
 async def read_user_me(current_user: User = Depends(get_current_active_user)):
     return current_user
+
+
+# Смена пароля текущим пользователем
+@router.post("/me/change-password", status_code=status.HTTP_200_OK)
+def change_password(
+    password_data: PasswordChange,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Эндпоинт для смены пароля текущего пользователя
+    Пользователь должен предоставить текущий пароль для подтверждения
+    """
+    # Проверяем, что текущий пароль верный
+    if not verify_password(password_data.current_password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Неверный текущий пароль"
+        )
+    
+    # Проверяем минимальную длину нового пароля
+    if len(password_data.new_password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Новый пароль должен содержать не менее 8 символов"
+        )
+    
+    # Хешируем и сохраняем новый пароль
+    hashed_password = get_password_hash(password_data.new_password)
+    current_user.hashed_password = hashed_password
+    
+    db.commit()
+    
+    return {"message": "Пароль успешно изменен"}
 
 
 # Получение информации о пользователе по ID

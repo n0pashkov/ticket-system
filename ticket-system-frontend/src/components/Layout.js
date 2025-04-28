@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   AppBar, Toolbar, Typography, Button, IconButton, 
-  Drawer, List, ListItem, ListItemIcon, ListItemText,
+  Drawer, List, ListItem, ListItemIcon, ListItemText, ListItemButton,
   Box, CssBaseline, Divider, Container, useMediaQuery, useTheme,
-  BottomNavigation, BottomNavigationAction, Paper
+  BottomNavigation, BottomNavigationAction, Paper, Avatar, Badge, Chip
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import DashboardIcon from '@mui/icons-material/Dashboard';
@@ -15,17 +15,42 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import CategoryIcon from '@mui/icons-material/Category';
 import PeopleIcon from '@mui/icons-material/People';
+import NotificationsIcon from '@mui/icons-material/Notifications';
+import LightModeIcon from '@mui/icons-material/LightMode';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
 import { useAuth } from '../context/AuthContext';
 
-const drawerWidth = 240;
+const drawerWidth = 280;
 
 const Layout = ({ children }) => {
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const [activeItem, setActiveItem] = useState('/');
+
+  useEffect(() => {
+    // Устанавливаем активный пункт меню на основе текущего пути
+    setActiveItem(location.pathname);
+    
+    // Проверяем сохраненную тему
+    const savedTheme = localStorage.getItem('darkMode');
+    if (savedTheme) {
+      setDarkMode(savedTheme === 'true');
+    }
+  }, [location.pathname]);
+
+  // Обработчик переключения темы
+  const toggleTheme = () => {
+    const newThemeValue = !darkMode;
+    setDarkMode(newThemeValue);
+    localStorage.setItem('darkMode', String(newThemeValue));
+    // Здесь можно добавить логику для фактического применения темы
+    // например, через ThemeProvider от Material UI
+  };
 
   // Определяем текущую активную вкладку для нижней навигации
   const getNavValue = () => {
@@ -37,17 +62,53 @@ const Layout = ({ children }) => {
   };
 
   const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
+    setDrawerOpen(!drawerOpen);
   };
 
   const handleNavigation = (path) => {
     navigate(path);
-    setMobileOpen(false);
+    if (isMobile) {
+      setDrawerOpen(false);
+    }
   };
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  // Получение инициалов из имени
+  const getInitials = (name) => {
+    if (!name) return '?';
+    const parts = name.split(' ');
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
+
+  // Определение цвета аватара в зависимости от роли
+  const getRoleColor = (role) => {
+    switch(role) {
+      case 'admin':
+        return '#f44336'; // красный для админа
+      case 'agent':
+        return '#2196f3'; // синий для агента
+      default:
+        return '#4caf50'; // зеленый для обычного пользователя
+    }
+  };
+
+  // Перевод роли на русский
+  const translateRole = (role) => {
+    switch(role) {
+      case 'admin':
+        return 'Администратор';
+      case 'agent':
+        return 'Технический специалист';
+      default:
+        return 'Пользователь';
+    }
   };
 
   // Определяем базовые пункты меню для всех пользователей
@@ -81,48 +142,227 @@ const Layout = ({ children }) => {
   }
 
   const drawer = (
-    <div>
-      <Toolbar>
-        <Typography variant="h6" noWrap component="div">
-          Система заявок
-        </Typography>
-      </Toolbar>
-      <Divider />
-      <List>
-        {menuItems.map((item) => (
-          <ListItem 
-            onClick={() => handleNavigation(item.path)}
-            key={item.text}
-            sx={{ cursor: 'pointer' }}
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* Шапка меню с градиентным фоном */}
+      <Box 
+        sx={{ 
+          p: 2, 
+          background: 'linear-gradient(120deg, #2196f3 0%, #21cbf3 100%)',
+          color: 'white',
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h5" fontWeight="bold" component="div">
+            Система заявок
+          </Typography>
+          <Badge 
+            color="error" 
+            badgeContent={3} 
+            sx={{ ml: 'auto' }}
           >
-            <ListItemIcon>{item.icon}</ListItemIcon>
-            <ListItemText primary={item.text} />
-          </ListItem>
-        ))}
-      </List>
-      <Divider />
-      <List>
-        <ListItem 
-          onClick={handleLogout}
-          sx={{ cursor: 'pointer' }}
+            <IconButton color="inherit" size="small">
+              <NotificationsIcon />
+            </IconButton>
+          </Badge>
+        </Box>
+        
+        {user && (
+          <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+            <Avatar 
+              sx={{ 
+                bgcolor: 'white', 
+                color: getRoleColor(user.role),
+                width: 44,
+                height: 44,
+                fontWeight: 'bold',
+                fontSize: '1.1rem'
+              }}
+            >
+              {getInitials(user.full_name || user.username)}
+            </Avatar>
+            <Box sx={{ ml: 2 }}>
+              <Typography variant="subtitle1" fontWeight="bold">
+                {user.full_name || user.username}
+              </Typography>
+              <Chip 
+                label={translateRole(user.role)} 
+                size="small"
+                sx={{ 
+                  bgcolor: 'rgba(255, 255, 255, 0.2)', 
+                  color: 'white',
+                  fontWeight: 500,
+                  fontSize: '0.7rem',
+                  height: 22
+                }}
+              />
+            </Box>
+          </Box>
+        )}
+      </Box>
+
+      {/* Пункты меню */}
+      <Box sx={{ flex: 1, overflowY: 'auto', p: 2 }}>
+        <Typography 
+          variant="overline" 
+          sx={{ 
+            ml: 2, 
+            color: 'text.secondary', 
+            fontWeight: 600,
+            letterSpacing: 1
+          }}
         >
-          <ListItemIcon><LogoutIcon /></ListItemIcon>
-          <ListItemText primary="Выход" />
+          Меню
+        </Typography>
+        
+        <List sx={{ mt: 1 }}>
+          {menuItems.map((item) => {
+            const isActive = activeItem === item.path;
+            
+            return (
+              <ListItem 
+                key={item.text}
+                disablePadding 
+                sx={{ mb: 0.5 }}
+              >
+                <ListItemButton
+                  onClick={() => handleNavigation(item.path)}
+                  sx={{
+                    borderRadius: 2,
+                    background: isActive ? 'rgba(33, 150, 243, 0.08)' : 'transparent',
+                    color: isActive ? '#2196f3' : 'inherit',
+                    '&:hover': {
+                      background: isActive 
+                        ? 'rgba(33, 150, 243, 0.12)' 
+                        : 'rgba(0, 0, 0, 0.04)'
+                    },
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <ListItemIcon 
+                    sx={{ 
+                      color: isActive ? '#2196f3' : 'action.active',
+                      minWidth: 42
+                    }}
+                  >
+                    {item.icon}
+                  </ListItemIcon>
+                  <ListItemText primary={item.text} />
+                  {item.path === '/tickets' && (
+                    <Chip 
+                      label="3" 
+                      size="small" 
+                      color="primary" 
+                      sx={{ height: 22, width: 22, p: 0 }}
+                    />
+                  )}
+                </ListItemButton>
+              </ListItem>
+            );
+          })}
+        </List>
+
+        {user?.role === 'admin' && (
+          <>
+            <Typography 
+              variant="overline" 
+              sx={{ 
+                ml: 2, 
+                mt: 3, 
+                color: 'text.secondary', 
+                fontWeight: 600,
+                letterSpacing: 1,
+                display: 'block'
+              }}
+            >
+              Управление
+            </Typography>
+            
+            <List sx={{ mt: 1 }}>
+              {adminMenuItems.map((item) => {
+                const isActive = activeItem === item.path;
+                
+                return (
+                  <ListItem 
+                    key={item.text}
+                    disablePadding 
+                    sx={{ mb: 0.5 }}
+                  >
+                    <ListItemButton
+                      onClick={() => handleNavigation(item.path)}
+                      sx={{
+                        borderRadius: 2,
+                        background: isActive ? 'rgba(33, 150, 243, 0.08)' : 'transparent',
+                        color: isActive ? '#2196f3' : 'inherit',
+                        '&:hover': {
+                          background: isActive 
+                            ? 'rgba(33, 150, 243, 0.12)' 
+                            : 'rgba(0, 0, 0, 0.04)'
+                        },
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      <ListItemIcon 
+                        sx={{ 
+                          color: isActive ? '#2196f3' : 'action.active',
+                          minWidth: 42
+                        }}
+                      >
+                        {item.icon}
+                      </ListItemIcon>
+                      <ListItemText primary={item.text} />
+                    </ListItemButton>
+                  </ListItem>
+                );
+              })}
+            </List>
+          </>
+        )}
+      </Box>
+
+      {/* Блок выхода из системы */}
+      <Box sx={{ p: 2 }}>
+        <Divider sx={{ mb: 2 }} />
+        <ListItem 
+          disablePadding
+        >
+          <ListItemButton
+            onClick={handleLogout}
+            sx={{
+              borderRadius: 2,
+              '&:hover': {
+                background: 'rgba(244, 67, 54, 0.08)',
+                color: '#f44336'
+              },
+              transition: 'all 0.2s'
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 42 }}>
+              <LogoutIcon color="error" />
+            </ListItemIcon>
+            <ListItemText 
+              primary="Выход из системы" 
+              primaryTypographyProps={{ fontWeight: 500 }}
+            />
+          </ListItemButton>
         </ListItem>
-      </List>
-    </div>
+      </Box>
+    </Box>
   );
 
   return (
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
 
-      {/* AppBar только для десктопа или с кнопкой меню для мобильных */}
+      {/* AppBar - верхняя панель навигации */}
       <AppBar
         position="fixed"
+        elevation={0}
         sx={{
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          ml: { sm: `${drawerWidth}px` },
+          width: '100%',
+          backgroundColor: 'white',
+          color: 'text.primary',
+          borderBottom: '1px solid #e0e0e0',
+          zIndex: (theme) => theme.zIndex.drawer + 1,
         }}
       >
         <Toolbar>
@@ -131,57 +371,66 @@ const Layout = ({ children }) => {
             aria-label="open drawer"
             edge="start"
             onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { sm: 'none' } }}
+            sx={{ mr: 2 }}
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            Система заявок
+          <Typography 
+            variant="h6" 
+            noWrap 
+            component="div" 
+            sx={{ 
+              flexGrow: 1,
+              fontWeight: 600
+            }}
+          >
+            {/* Название текущей страницы */}
+            {location.pathname === '/' && 'Информационная панель'}
+            {location.pathname === '/tickets' && 'Заявки'}
+            {location.pathname === '/profile' && 'Профиль'}
+            {location.pathname === '/settings' && 'Настройки'}
+            {location.pathname === '/tickets/new' && 'Создание заявки'}
+            {location.pathname === '/category-management' && 'Управление категориями'}
+            {location.pathname === '/manage-users' && 'Управление пользователями'}
           </Typography>
-          {user ? (
-            <Typography variant="body1" color="inherit">
-              Привет, {user.name}
-            </Typography>
-          ) : (
-            <Button color="inherit" onClick={() => navigate('/login')}>
-              Вход
-            </Button>
-          )}
+
+          {/* Иконка переключения темы */}
+          <IconButton 
+            color="primary" 
+            onClick={toggleTheme}
+            sx={{ 
+              backgroundColor: 'rgba(33, 150, 243, 0.08)', 
+              transition: 'all 0.2s',
+              '&:hover': {
+                backgroundColor: 'rgba(33, 150, 243, 0.15)'
+              }
+            }}
+          >
+            {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
+          </IconButton>
         </Toolbar>
       </AppBar>
 
-      {/* Боковое меню - всегда видимо на десктопе */}
-      <Box
-        component="nav"
-        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
+      {/* Боковое меню */}
+      <Drawer
+        variant="temporary"
+        open={drawerOpen}
+        onClose={handleDrawerToggle}
+        ModalProps={{
+          keepMounted: true, // Better open performance on mobile.
+        }}
+        sx={{
+          '& .MuiDrawer-paper': { 
+            width: drawerWidth,
+            boxSizing: 'border-box',
+            borderRadius: { xs: 0, sm: '0 16px 16px 0' },
+            boxShadow: '0 0 20px rgba(0, 0, 0, 0.05)',
+            border: 'none',
+          },
+        }}
       >
-        {/* Временное боковое меню для мобильных (открывается по кнопке) */}
-        <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={handleDrawerToggle}
-          ModalProps={{
-            keepMounted: true, // Better open performance on mobile.
-          }}
-          sx={{
-            display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
-          }}
-        >
-          {drawer}
-        </Drawer>
-        {/* Постоянное боковое меню для десктопа */}
-        <Drawer
-          variant="permanent"
-          sx={{
-            display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
-          }}
-          open
-        >
-          {drawer}
-        </Drawer>
-      </Box>
+        {drawer}
+      </Drawer>
       
       {/* Основной контент */}
       <Box
@@ -189,8 +438,10 @@ const Layout = ({ children }) => {
         sx={{ 
           flexGrow: 1, 
           p: { xs: 2, sm: 3 }, 
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          pb: isMobile ? 8 : 3 // Добавляем отступ снизу для мобильных устройств
+          width: '100%',
+          pb: isMobile ? 8 : 3, // Добавляем отступ снизу для мобильных устройств
+          bgcolor: '#f5f7fa',
+          minHeight: '100vh'
         }}
       >
         <Toolbar />
@@ -209,7 +460,8 @@ const Layout = ({ children }) => {
             right: 0,
             zIndex: 1100,
             borderRadius: '16px 16px 0 0',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            boxShadow: '0 -2px 10px rgba(0, 0, 0, 0.1)'
           }} 
           elevation={3}
         >
@@ -234,9 +486,19 @@ const Layout = ({ children }) => {
               }
             }}
             showLabels
+            sx={{ 
+              height: 64
+            }}
           >
             <BottomNavigationAction label="Главная" icon={<DashboardIcon />} />
-            <BottomNavigationAction label="Заявки" icon={<ConfirmationNumberIcon />} />
+            <BottomNavigationAction 
+              label="Заявки" 
+              icon={
+                <Badge color="error" badgeContent={3}>
+                  <ConfirmationNumberIcon />
+                </Badge>
+              } 
+            />
             <BottomNavigationAction label="Профиль" icon={<PersonIcon />} />
             <BottomNavigationAction label="Настройки" icon={<SettingsIcon />} />
           </BottomNavigation>

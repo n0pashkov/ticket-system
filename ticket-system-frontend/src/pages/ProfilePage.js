@@ -124,21 +124,34 @@ const ProfilePage = () => {
       return;
     }
     
+    // Проверка наличия текущего пароля
+    if (!currentPassword) {
+      setPasswordError('Введите текущий пароль');
+      return;
+    }
+    
     setLoading(true);
+    setPasswordError('');
     
     try {
-      // Показываем заглушку, так как фактически этот функционал не реализован в бэкенде
-      // В реальности здесь был бы запрос на смену пароля
+      // Обновляем пароль пользователя через новый специальный API метод
+      await usersAPI.changePassword(newPassword, currentPassword);
+      
+      setSuccess('Пароль успешно изменен');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
       setTimeout(() => {
-        setSuccess('Пароль успешно изменен');
-        setLoading(false);
-        setCurrentPassword('');
-        setNewPassword('');
-        setConfirmPassword('');
         setOpenPasswordDialog(false);
-      }, 1000);
+        setSuccess('');
+      }, 2000);
     } catch (error) {
-      setPasswordError('Ошибка при изменении пароля');
+      console.error('Ошибка при изменении пароля:', error);
+      setPasswordError(
+        error.response?.data?.detail || 
+        'Ошибка при изменении пароля. Проверьте текущий пароль и попробуйте снова.'
+      );
+    } finally {
       setLoading(false);
     }
   };

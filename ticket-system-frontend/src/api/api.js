@@ -100,6 +100,11 @@ export const usersAPI = {
   create: (userData) => api.post('/users/', userData),
   update: (id, userData) => api.put(`/users/${id}`, userData),
   delete: (id) => api.delete(`/users/${id}`),
+  // Новый метод для смены пароля через специальный эндпоинт
+  changePassword: (newPassword, currentPassword) => api.post('/users/me/change-password', {
+    new_password: newPassword,
+    current_password: currentPassword
+  }),
 };
 
 // API для работы с заявками
