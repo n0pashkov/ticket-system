@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Typography, Box, Paper, Table, TableBody, TableCell, 
+  Typography, Box, Table, TableBody, TableCell, 
   TableContainer, TableHead, TableRow, Button, Chip,
   CircularProgress, TextField, InputAdornment, IconButton,
   Dialog, DialogTitle, DialogContent, DialogActions,
-  MenuItem, Select, FormControl, InputLabel, Grid,
-  TablePagination, Alert, Tooltip, Snackbar
+  MenuItem, Select, FormControl, InputLabel,
+  TablePagination, Alert, Tooltip, Snackbar,
+  Card, CardContent, Avatar, Divider, Paper
 } from '@mui/material';
 import MuiAlert from '@mui/material/Alert';
 import SearchIcon from '@mui/icons-material/Search';
@@ -15,20 +16,23 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
 import DoneIcon from '@mui/icons-material/Done';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useTickets } from '../hooks/useTickets';
 import { useUsers } from '../hooks/useUsers';
 import { useAuth } from '../context/AuthContext';
 
 const statusColors = {
-  'new': 'warning',
-  'in_progress': 'info',
-  'closed': 'success'
+  'new': '#ffa726',
+  'in_progress': '#29b6f6',
+  'closed': '#66bb6a'
 };
 
 const priorityColors = {
-  'low': 'success',
-  'medium': 'warning',
-  'high': 'error'
+  'low': '#8bc34a',
+  'medium': '#ffa726',
+  'high': '#f44336'
 };
 
 // Функция для форматирования статуса
@@ -241,9 +245,24 @@ const TicketsPage = () => {
     navigate(`/tickets/${ticketId}`);
   };
 
+  const handleCreateTicket = () => {
+    navigate('/tickets/new');
+  };
+
+  const handleGoBack = () => {
+    navigate('/');
+  };
+
   if (isLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+      <Box sx={{ 
+        width: '100%', 
+        maxWidth: '100vw', 
+        p: 2,
+        display: 'flex', 
+        justifyContent: 'center', 
+        mt: 4 
+      }}>
         <CircularProgress />
       </Box>
     );
@@ -251,208 +270,388 @@ const TicketsPage = () => {
 
   if (isError) {
     return (
-      <Alert severity="error" sx={{ mt: 2 }}>
-        {getErrorMessage()}
-      </Alert>
+      <Box sx={{ p: 2 }}>
+        <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
+          {getErrorMessage()}
+        </Alert>
+        <Button 
+          variant="outlined" 
+          startIcon={<ArrowBackIcon />} 
+          onClick={handleGoBack}
+          sx={{ borderRadius: 2 }}
+        >
+          Вернуться на главную
+        </Button>
+      </Box>
     );
   }
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1">
-          Заявки
-        </Typography>
-        <Button 
-          variant="contained" 
-          color="primary" 
-          startIcon={<AddIcon />}
-          onClick={() => navigate('/tickets/new')}
+    <Box sx={{ 
+      width: '100%', 
+      maxWidth: '100vw', 
+      overflow: 'hidden',
+      position: 'relative',
+      boxSizing: 'border-box'
+    }}>
+      <Box sx={{ 
+        p: 2, 
+        width: '100%',
+        boxSizing: 'border-box' 
+      }}>
+        {/* Заголовок и кнопка назад */}
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          mb: 2,
+          width: '100%'
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <IconButton 
+              color="primary" 
+              onClick={handleGoBack}
+              sx={{ 
+                mr: 1,
+                backgroundColor: 'rgba(25, 118, 210, 0.08)'
+              }}
+            >
+              <ArrowBackIcon />
+            </IconButton>
+            <Typography variant="h5" sx={{ fontWeight: 700 }}>
+              Все заявки
+            </Typography>
+          </Box>
+
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleCreateTicket}
+            startIcon={<AddIcon />}
+            sx={{ 
+              borderRadius: 2,
+              boxShadow: '0 4px 10px rgba(33, 150, 243, 0.3)'
+            }}
+          >
+            Новая заявка
+          </Button>
+        </Box>
+
+        {/* Карточка фильтров */}
+        <Card 
+          sx={{ 
+            mb: 3, 
+            borderRadius: 4, 
+            boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+            width: '100%'
+          }}
         >
-          Создать заявку
-        </Button>
+          <CardContent sx={{ p: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+              <FilterListIcon sx={{ mr: 1, color: 'action.active' }} />
+              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                Фильтры
+              </Typography>
+            </Box>
+            <Divider sx={{ mb: 2 }} />
+            
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: { xs: 'column', sm: 'row' }, 
+              gap: 2,
+              width: '100%'
+            }}>
+              <TextField
+                placeholder="Поиск по заявкам"
+                variant="outlined"
+                value={searchQuery}
+                onChange={handleSearch}
+                fullWidth
+                size="small"
+                sx={{ 
+                  mb: { xs: 2, sm: 0 },
+                  '& .MuiOutlinedInput-root': { borderRadius: 2 }
+                }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              
+              <FormControl 
+                variant="outlined" 
+                size="small" 
+                sx={{ minWidth: { xs: '100%', sm: 180 } }}
+              >
+                <InputLabel>Статус</InputLabel>
+                <Select
+                  value={filterStatus}
+                  onChange={handleStatusFilterChange}
+                  label="Статус"
+                  sx={{ borderRadius: 2 }}
+                >
+                  <MenuItem value="all">Все статусы</MenuItem>
+                  <MenuItem value="new">Новые</MenuItem>
+                  <MenuItem value="in_progress">В работе</MenuItem>
+                  <MenuItem value="closed">Закрытые</MenuItem>
+                </Select>
+              </FormControl>
+              
+              <FormControl 
+                variant="outlined" 
+                size="small" 
+                sx={{ minWidth: { xs: '100%', sm: 180 } }}
+              >
+                <InputLabel>Приоритет</InputLabel>
+                <Select
+                  value={filterPriority}
+                  onChange={handlePriorityFilterChange}
+                  label="Приоритет"
+                  sx={{ borderRadius: 2 }}
+                >
+                  <MenuItem value="all">Все приоритеты</MenuItem>
+                  <MenuItem value="low">Низкий</MenuItem>
+                  <MenuItem value="medium">Средний</MenuItem>
+                  <MenuItem value="high">Высокий</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+          </CardContent>
+        </Card>
+
+        {/* Таблица заявок */}
+        <Card 
+          sx={{ 
+            borderRadius: 4, 
+            overflow: 'hidden',
+            width: '100%',
+            boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+          }}
+        >
+          <TableContainer component={Paper} sx={{ borderRadius: 4, boxShadow: 'none' }}>
+            <Table>
+              <TableHead sx={{ bgcolor: 'rgba(25, 118, 210, 0.08)' }}>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 600 }}>Заголовок</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Статус</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Приоритет</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Исполнитель</TableCell>
+                  {isAgentOrAdmin && <TableCell sx={{ fontWeight: 600 }}>Действия</TableCell>}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {paginatedTickets.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={isAgentOrAdmin ? 5 : 4} align="center">
+                      <Box sx={{ py: 4 }}>
+                        <Avatar 
+                          sx={{ 
+                            width: 60, 
+                            height: 60, 
+                            bgcolor: 'rgba(25, 118, 210, 0.08)', 
+                            color: 'primary.main',
+                            margin: '0 auto',
+                            mb: 2
+                          }}
+                        >
+                          <AssignmentIcon sx={{ fontSize: 30 }} />
+                        </Avatar>
+                        <Typography variant="h6" sx={{ mb: 1 }}>
+                          Нет заявок
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          {searchQuery || filterStatus !== 'all' || filterPriority !== 'all' 
+                            ? 'Попробуйте изменить параметры фильтрации' 
+                            : 'Создайте первую заявку!'}
+                        </Typography>
+                        {!(searchQuery || filterStatus !== 'all' || filterPriority !== 'all') && (
+                          <Button
+                            variant="contained"
+                            color="primary"
+                            startIcon={<AddIcon />}
+                            onClick={handleCreateTicket}
+                            sx={{ mt: 2, borderRadius: 2 }}
+                          >
+                            Создать заявку
+                          </Button>
+                        )}
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  paginatedTickets.map((ticket) => (
+                    <TableRow 
+                      key={ticket.id} 
+                      hover 
+                      sx={{ cursor: 'pointer' }} 
+                      onClick={() => handleRowClick(ticket.id)}
+                    >
+                      <TableCell>{ticket.title}</TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={formatStatus(ticket.status)} 
+                          size="small" 
+                          sx={{ 
+                            bgcolor: `${statusColors[ticket.status]}15`, 
+                            color: statusColors[ticket.status],
+                            fontWeight: 500,
+                            borderRadius: 2
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={formatPriority(ticket.priority)} 
+                          size="small"
+                          sx={{ 
+                            bgcolor: `${priorityColors[ticket.priority]}15`, 
+                            color: priorityColors[ticket.priority],
+                            fontWeight: 500,
+                            borderRadius: 2
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {ticket.assigned_to_id ? (
+                          getAssigneeName(ticket.assigned_to_id)
+                        ) : (
+                          <Chip 
+                            label="Не назначен" 
+                            size="small"
+                            variant="outlined"
+                            sx={{ borderRadius: 2 }}
+                          />
+                        )}
+                      </TableCell>
+                      {isAgentOrAdmin && (
+                        <TableCell>
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            {ticket.status === 'new' && (
+                              <Tooltip title="Взять в работу">
+                                <IconButton 
+                                  size="small" 
+                                  color="primary" 
+                                  onClick={(e) => handleSelfAssign(ticket.id, e)}
+                                  sx={{ bgcolor: 'rgba(25, 118, 210, 0.08)' }}
+                                >
+                                  <AssignmentIndIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            {ticket.status === 'in_progress' && (
+                              <Tooltip title="Отметить как выполненную">
+                                <IconButton 
+                                  size="small" 
+                                  color="success" 
+                                  onClick={(e) => handleCloseTicket(ticket.id, e)}
+                                  sx={{ bgcolor: 'rgba(102, 187, 106, 0.08)' }}
+                                >
+                                  <DoneIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            {isAdmin && (
+                              <Tooltip title="Удалить">
+                                <IconButton 
+                                  size="small" 
+                                  color="error" 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openDeleteDialog(ticket);
+                                  }}
+                                  sx={{ bgcolor: 'rgba(244, 67, 54, 0.08)' }}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </Box>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <TablePagination
+            rowsPerPageOptions={[5, 10, 25]}
+            component="div"
+            count={filteredTickets.length}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+          />
+        </Card>
       </Box>
 
-      {/* Filters */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={4}>
-            <TextField
-              fullWidth
-              label="Поиск заявок"
-              variant="outlined"
-              value={searchQuery}
-              onChange={handleSearch}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
-          <Grid item xs={6} md={4}>
-            <FormControl fullWidth>
-              <InputLabel>Статус</InputLabel>
-              <Select
-                value={filterStatus}
-                onChange={handleStatusFilterChange}
-                label="Статус"
-              >
-                <MenuItem value="all">Все статусы</MenuItem>
-                <MenuItem value="new">Новые</MenuItem>
-                <MenuItem value="in_progress">В работе</MenuItem>
-                <MenuItem value="closed">Закрытые</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={6} md={4}>
-            <FormControl fullWidth>
-              <InputLabel>Приоритет</InputLabel>
-              <Select
-                value={filterPriority}
-                onChange={handlePriorityFilterChange}
-                label="Приоритет"
-              >
-                <MenuItem value="all">Все приоритеты</MenuItem>
-                <MenuItem value="low">Низкий</MenuItem>
-                <MenuItem value="medium">Средний</MenuItem>
-                <MenuItem value="high">Высокий</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-        </Grid>
-      </Paper>
-
-      {/* Tickets Table */}
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              {isAdmin && <TableCell>ID</TableCell>}
-              <TableCell>Заголовок</TableCell>
-              <TableCell>Кабинет</TableCell>
-              <TableCell>Статус</TableCell>
-              <TableCell>Приоритет</TableCell>
-              <TableCell>Исполнитель</TableCell>
-              <TableCell>Создана</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {paginatedTickets.length > 0 ? (
-              paginatedTickets.map((ticket) => (
-                <TableRow 
-                  key={ticket.id} 
-                  onClick={() => handleRowClick(ticket.id)}
-                  hover
-                  sx={{ 
-                    cursor: 'pointer',
-                    '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.04)' }
-                  }}
-                >
-                  {isAdmin && <TableCell>{ticket.id}</TableCell>}
-                  <TableCell>{ticket.title}</TableCell>
-                  <TableCell>{ticket.room_number || "—"}</TableCell>
-                  <TableCell>
-                    <Chip 
-                      label={formatStatus(ticket.status)}
-                      color={statusColors[ticket.status] || 'default'} 
-                      size="small" 
-                      onClick={(e) => e.stopPropagation()} // Предотвращаем срабатывание клика по строке
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Chip 
-                      label={formatPriority(ticket.priority)}
-                      color={priorityColors[ticket.priority] || 'default'} 
-                      size="small" 
-                      onClick={(e) => e.stopPropagation()} // Предотвращаем срабатывание клика по строке
-                    />
-                  </TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}> {/* Предотвращаем срабатывание клика по строке */}
-                    {ticket.assigned_to_id ? (
-                      <Chip
-                        icon={<AssignmentIndIcon />}
-                        label={getAssigneeName(ticket.assigned_to_id)}
-                        color="info"
-                        size="small"
-                      />
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">
-                        Не назначен
-                      </Typography>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {new Date(ticket.created_at).toLocaleDateString()}
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={isAdmin ? 7 : 6} align="center">
-                  Заявки не найдены.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-        <TablePagination
-          rowsPerPageOptions={[5, 10, 25]}
-          component="div"
-          count={filteredTickets.length}
-          rowsPerPage={rowsPerPage}
-          page={page}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-          labelRowsPerPage="Строк на странице:"
-          labelDisplayedRows={({ from, to, count }) => `${from}-${to} из ${count}`}
-        />
-      </TableContainer>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={closeDeleteDialog}>
-        <DialogTitle>Подтверждение удаления</DialogTitle>
+      {/* Диалог подтверждения удаления */}
+      <Dialog 
+        open={deleteDialogOpen} 
+        onClose={closeDeleteDialog}
+        PaperProps={{
+          sx: { borderRadius: 3 }
+        }}
+      >
+        <DialogTitle>
+          {isAdmin ? "Удаление заявки" : "Скрытие заявки"}
+        </DialogTitle>
         <DialogContent>
-          {deleteError ? (
-            <Alert severity="error" sx={{ mt: 2, mb: 2 }}>
+          {deleteError && (
+            <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
               {deleteError}
             </Alert>
-          ) : (
-            <Typography>
-              {user && user.role === 'admin' ? (
-                `Вы уверены, что хотите удалить заявку "${ticketToDelete?.title}"? Это действие нельзя отменить.`
-              ) : (
-                `Вы уверены, что хотите скрыть заявку "${ticketToDelete?.title}"? Вы больше не будете её видеть, но администраторы и технические специалисты по-прежнему будут иметь к ней доступ.`
-              )}
+          )}
+          <Typography>
+            {isAdmin 
+              ? "Вы уверены, что хотите удалить эту заявку? Это действие нельзя отменить."
+              : "Вы уверены, что хотите скрыть эту заявку из вашего списка?"}
+          </Typography>
+          {ticketToDelete && (
+            <Typography variant="subtitle1" sx={{ mt: 2, fontWeight: 'bold' }}>
+              "{ticketToDelete.title}"
             </Typography>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={closeDeleteDialog}>Отмена</Button>
+        <DialogActions sx={{ pb: 3, px: 3 }}>
+          <Button 
+            onClick={closeDeleteDialog} 
+            variant="outlined"
+            sx={{ borderRadius: 2 }}
+          >
+            Отмена
+          </Button>
           <Button 
             onClick={confirmDelete} 
-            color="error"
-            disabled={!!deleteError}
+            color="error" 
+            variant="contained"
+            sx={{ 
+              borderRadius: 2,
+              boxShadow: '0 4px 10px rgba(244, 67, 54, 0.3)'
+            }}
           >
-            {user && user.role === 'admin' ? 'Удалить' : 'Скрыть'}
+            {isAdmin ? "Удалить" : "Скрыть"}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Notification Snackbar */}
+      {/* Уведомление */}
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={6000}
+        autoHideDuration={5000}
         onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
-        <MuiAlert
-          elevation={6}
-          variant="filled"
-          onClose={handleCloseSnackbar}
+        <MuiAlert 
+          elevation={6} 
+          variant="filled" 
+          onClose={handleCloseSnackbar} 
           severity={snackbar.severity}
+          sx={{ borderRadius: 2 }}
         >
           {snackbar.message}
         </MuiAlert>

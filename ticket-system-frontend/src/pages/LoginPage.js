@@ -1,8 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Container, Typography, TextField, Button, Paper, Box, Alert, CircularProgress, Grid } from '@mui/material';
+import { 
+  Typography, Box, TextField, Button, 
+  Card, CardContent, Alert, CircularProgress, 
+  Grid, Avatar, Container, Divider
+} from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
+
+// Иконки
+import LockIcon from '@mui/icons-material/Lock';
+import EmailIcon from '@mui/icons-material/Email';
+import BugReportIcon from '@mui/icons-material/BugReport';
+import ApiIcon from '@mui/icons-material/Api';
 
 const LoginPage = () => {
   const [formData, setFormData] = useState({
@@ -166,117 +176,187 @@ const LoginPage = () => {
   const errorMessage = formError || authError;
 
   return (
-    <Container maxWidth="sm">
-      <Box sx={{ mt: 8, mb: 4 }}>
-        <Paper elevation={3} sx={{ p: 4 }}>
-          <Typography variant="h4" component="h1" align="center" gutterBottom>
-            Вход в систему заявок
-          </Typography>
-          
-          {errorMessage && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {errorMessage}
-            </Alert>
-          )}
-          
-          <Box component="form" onSubmit={handleSubmit}>
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              id="email"
-              label="Email или имя пользователя"
-              name="email"
-              autoComplete="email"
-              autoFocus
-              value={formData.email}
-              onChange={handleChange}
-              disabled={isSubmitting}
-            />
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              name="password"
-              label="Пароль"
-              type="password"
-              id="password"
-              autoComplete="current-password"
-              value={formData.password}
-              onChange={handleChange}
-              disabled={isSubmitting}
-            />
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              sx={{ mt: 3, mb: 2 }}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? <CircularProgress size={24} /> : 'Войти'}
-            </Button>
-            
-            {/* Инструменты диагностики */}
-            <Typography variant="h6" component="h2" sx={{ mt: 3, mb: 2 }}>
-              Диагностика соединения
-            </Typography>
-            
-            <Grid container spacing={2}>
-              <Grid item xs={6}>
-                <Button
-                  fullWidth
-                  variant="outlined"
-                  onClick={checkBackendStatus}
-                  disabled={backendStatus?.loading}
-                >
-                  {backendStatus?.loading ? 
-                    <CircularProgress size={24} /> : 
-                    'Проверить бэкенд'
-                  }
-                </Button>
-              </Grid>
-              <Grid item xs={6}>
-                <Button
-                  fullWidth
-                  variant="outlined"
-                  onClick={testAuthAPI}
-                  disabled={authTestResult?.loading}
-                  color="secondary"
-                >
-                  {authTestResult?.loading ? 
-                    <CircularProgress size={24} /> : 
-                    'Тест API входа'
-                  }
-                </Button>
-              </Grid>
-            </Grid>
-            
-            {backendStatus && !backendStatus.loading && (
-              <Alert 
-                severity={backendStatus.success ? "success" : "error"}
-                sx={{ mt: 2, mb: 2 }}
+    <Box sx={{ 
+      width: '100%', 
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      p: 2
+    }}>
+      <Container maxWidth="sm">
+        <Card sx={{ 
+          borderRadius: 4, 
+          overflow: 'hidden',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+        }}>
+          <CardContent sx={{ p: 4 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+              <Avatar 
+                sx={{ 
+                  width: 56, 
+                  height: 56, 
+                  bgcolor: 'primary.main', 
+                  color: 'white',
+                  boxShadow: '0 4px 10px rgba(33, 150, 243, 0.3)'
+                }}
               >
-                {backendStatus.message}
+                <LockIcon fontSize="large" />
+              </Avatar>
+              <Box sx={{ ml: 2 }}>
+                <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                  Вход в систему
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  Система управления заявками
+                </Typography>
+              </Box>
+            </Box>
+          
+            {errorMessage && (
+              <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
+                {errorMessage}
               </Alert>
             )}
-            
-            {authTestResult && !authTestResult.loading && (
-              <Alert 
-                severity={authTestResult.success ? "success" : "error"}
-                sx={{ mt: 2 }}
+          
+            <Box component="form" onSubmit={handleSubmit}>
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                id="email"
+                label="Email или имя пользователя"
+                name="email"
+                autoComplete="email"
+                autoFocus
+                value={formData.email}
+                onChange={handleChange}
+                disabled={isSubmitting}
+                sx={{ 
+                  mb: 2,
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                  }
+                }}
+                InputProps={{
+                  sx: { borderRadius: 2 },
+                  startAdornment: (
+                    <EmailIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                  ),
+                }}
+              />
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                name="password"
+                label="Пароль"
+                type="password"
+                id="password"
+                autoComplete="current-password"
+                value={formData.password}
+                onChange={handleChange}
+                disabled={isSubmitting}
+                sx={{ 
+                  mb: 3,
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                  }
+                }}
+                InputProps={{
+                  sx: { borderRadius: 2 },
+                  startAdornment: (
+                    <LockIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                  ),
+                }}
+              />
+              <Button
+                type="submit"
+                fullWidth
+                variant="contained"
+                disabled={isSubmitting}
+                sx={{ 
+                  mt: 2, 
+                  mb: 3, 
+                  py: 1.2,
+                  borderRadius: 2,
+                  fontWeight: 600,
+                  boxShadow: '0 4px 10px rgba(33, 150, 243, 0.3)'
+                }}
               >
-                {authTestResult.message}
-                {authTestResult.details && (
-                  <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.8em', marginTop: '8px' }}>
-                    {JSON.stringify(authTestResult.details, null, 2)}
-                  </pre>
-                )}
-              </Alert>
-            )}
-          </Box>
-        </Paper>
-      </Box>
-    </Container>
+                {isSubmitting ? <CircularProgress size={24} /> : 'Войти'}
+              </Button>
+              
+              {/* Инструменты диагностики */}
+              <Divider sx={{ my: 3 }} />
+              <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>
+                Диагностика соединения
+              </Typography>
+              
+              <Grid container spacing={2}>
+                <Grid item xs={6}>
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    onClick={checkBackendStatus}
+                    disabled={backendStatus?.loading}
+                    startIcon={<BugReportIcon />}
+                    sx={{ 
+                      borderRadius: 2, 
+                      py: 1,
+                      height: '100%'
+                    }}
+                  >
+                    {backendStatus?.loading ? 
+                      <CircularProgress size={24} /> : 
+                      'Проверить бэкенд'
+                    }
+                  </Button>
+                </Grid>
+                <Grid item xs={6}>
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    onClick={testAuthAPI}
+                    disabled={authTestResult?.loading}
+                    color="secondary"
+                    startIcon={<ApiIcon />}
+                    sx={{ 
+                      borderRadius: 2, 
+                      py: 1,
+                      height: '100%'
+                    }}
+                  >
+                    {authTestResult?.loading ? 
+                      <CircularProgress size={24} /> : 
+                      'Тест API входа'
+                    }
+                  </Button>
+                </Grid>
+              </Grid>
+              
+              {backendStatus && !backendStatus.loading && (
+                <Alert 
+                  severity={backendStatus.success ? 'success' : 'error'} 
+                  sx={{ mt: 2, borderRadius: 2 }}
+                >
+                  {backendStatus.message}
+                </Alert>
+              )}
+              
+              {authTestResult && !authTestResult.loading && (
+                <Alert 
+                  severity={authTestResult.success ? 'success' : 'error'} 
+                  sx={{ mt: 2, borderRadius: 2 }}
+                >
+                  {authTestResult.message}
+                </Alert>
+              )}
+            </Box>
+          </CardContent>
+        </Card>
+      </Container>
+    </Box>
   );
 };
 

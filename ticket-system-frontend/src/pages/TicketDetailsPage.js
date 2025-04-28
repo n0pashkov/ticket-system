@@ -12,7 +12,6 @@ import {
   Button,
   Card,
   CardContent,
-  CardHeader,
   Chip,
   Dialog,
   DialogActions,
@@ -21,17 +20,22 @@ import {
   DialogTitle,
   Divider,
   Grid,
-  Paper,
   TextField,
   Typography,
   Alert,
   Avatar,
   Snackbar,
-  Container,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
+  IconButton,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemAvatar,
+  CircularProgress,
+  Paper
 } from '@mui/material';
 
 // Material UI иконки
@@ -49,20 +53,24 @@ import {
   CheckCircle as CheckCircleIcon,
   PlayArrow as PlayArrowIcon,
   Settings as SettingsIcon,
+  Engineering as EngineeringIcon,
+  AssignmentInd as AssignmentIndIcon,
+  Home as HomeIcon,
+  Room as RoomIcon
 } from '@mui/icons-material';
 
-// Цвета для статусов, как в таблице
+// Цвета для статусов
 const statusColors = {
-  'new': 'warning',
-  'in_progress': 'info',
-  'closed': 'success'
+  'new': '#ffa726',
+  'in_progress': '#29b6f6',
+  'closed': '#66bb6a'
 };
 
-// Цвета для приоритетов, как в таблице
+// Цвета для приоритетов
 const priorityColors = {
-  'low': 'success',
-  'medium': 'warning',
-  'high': 'error'
+  'low': '#8bc34a',
+  'medium': '#ffa726',
+  'high': '#f44336'
 };
 
 // Функция для форматирования статуса
@@ -248,10 +256,16 @@ const TicketDetailsPage = () => {
     if (!editFormData.title.trim()) {
       errors.title = 'Заголовок обязателен';
       valid = false;
+    } else if (editFormData.title.length < 3) {
+      errors.title = 'Заголовок должен содержать не менее 3 символов';
+      valid = false;
     }
 
     if (!editFormData.description.trim()) {
       errors.description = 'Описание обязательно';
+      valid = false;
+    } else if (editFormData.description.length < 10) {
+      errors.description = 'Описание должно содержать не менее 10 символов';
       valid = false;
     }
     
@@ -261,30 +275,28 @@ const TicketDetailsPage = () => {
     }
 
     setEditFormErrors(errors);
-    
     if (!valid) return;
-    
+
     try {
-      setActionError(null);
       await ticketsAPI.update(id, editFormData);
-      setSuccessMessage('Заявка успешно обновлена');
+      setSuccessMessage('Тикет успешно обновлен');
       setEditDialogOpen(false);
       setTimeout(() => {
         window.location.reload();
       }, 1000);
     } catch (err) {
-      console.error('Ошибка при обновлении заявки:', err);
-      setActionError('Не удалось обновить заявку.');
+      console.error('Ошибка при обновлении тикета:', err);
+      setActionError('Не удалось обновить тикет.');
     }
   };
-  
+
   const handleEditFormChange = (e) => {
     const { name, value } = e.target;
     setEditFormData(prev => ({
       ...prev,
       [name]: value
     }));
-    
+
     // Сбросить ошибку для этого поля при изменении
     if (editFormErrors[name]) {
       setEditFormErrors(prev => ({
@@ -293,476 +305,542 @@ const TicketDetailsPage = () => {
       }));
     }
   };
-
-  // Проверка прав доступа
+  
+  // Является ли пользователь администратором
   const isAdmin = user?.role === 'admin';
-  const isAgent = user?.role === 'agent';
-  const isCreator = ticket?.creator_id === user?.id;
-  const isAssigned = ticket?.assigned_to_id === user?.id;
-
-  // Определение доступных действий
-  const canTakeTicket = (isAdmin || isAgent) && 
-                      (ticket?.status === 'new' || ticket?.status === 'open' || 
-                      (isAdmin && ticket?.status !== 'closed'));
-  const canCloseTicket = (isAdmin || (isAgent && isAssigned) || isCreator) && 
-                       (ticket?.status === 'new' || ticket?.status === 'open' || 
-                        ticket?.status === 'in_progress' || 
-                        (isAdmin && ticket?.status !== 'closed'));
-  const canCompleteTicket = (isAdmin || (isAgent && isAssigned)) && 
-                         (ticket?.status === 'in_progress' || isAdmin);
-  const canDeleteTicket = isAdmin || isCreator;
-  const canEditTicket = isAdmin || isCreator || (isAgent && isAssigned);
-
-  if (isLoading) return (
-    <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
-      <Typography variant="h6">Загрузка...</Typography>
-    </Box>
-  );
   
-  if (isError) return (
-    <Alert severity="error" sx={{ m: 2 }}>
-      {error?.message || 'Ошибка при загрузке тикета'}
-    </Alert>
-  );
+  // Является ли пользователь агентом или администратором
+  const isAgentOrAdmin = user && ['agent', 'admin'].includes(user.role);
   
-  if (!ticket) return (
-    <Alert severity="warning" sx={{ m: 2 }}>
-      Тикет не найден
-    </Alert>
-  );
+  // Может ли пользователь редактировать тикет (админ, агент или создатель)
+  const canEdit = isAgentOrAdmin || (user && ticket && user.id === ticket.creator_id);
+  
+  // Показывать ли кнопку "взять в работу" (для агентов, когда тикет новый)
+  const showSelfAssignButton = isAgentOrAdmin && ticket && ticket.status === 'new';
+  
+  // Показывать ли кнопку "закрыть" (для агентов, когда тикет в работе и назначен на текущего агента)
+  const showCloseButton = isAgentOrAdmin && ticket && ticket.status === 'in_progress' && 
+    (isAdmin || (user && ticket.assigned_to_id === user.id));
+  
+  // Показывать ли кнопку "удалить" (только для администраторов)
+  const showDeleteButton = isAdmin && ticket;
 
-  return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      {/* Заголовок и кнопка назад */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1" display="flex" alignItems="center">
-          <AssignmentIcon sx={{ mr: 1 }} />
-          Тикет #{ticket.id}: {ticket.title}
-        </Typography>
+  if (isLoading) {
+    return (
+      <Box sx={{ 
+        width: '100%', 
+        p: 2,
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center',
+        minHeight: '50vh'
+      }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (isError || !ticket) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
+          {error?.message || 'Не удалось загрузить данные заявки.'}
+        </Alert>
         <Button 
           variant="outlined" 
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate(-1)}
+          startIcon={<ArrowBackIcon />} 
+          onClick={() => navigate('/tickets')}
+          sx={{ borderRadius: 2 }}
         >
-          НАЗАД
+          Вернуться к списку заявок
         </Button>
       </Box>
+    );
+  }
 
+  return (
+    <Box sx={{ 
+      width: '100%', 
+      maxWidth: '100vw', 
+      overflow: 'hidden',
+      position: 'relative',
+      boxSizing: 'border-box',
+      p: 2
+    }}>
+      {/* Панель с кнопкой назад и заголовком */}
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: 2,
+        width: '100%'
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <IconButton 
+            color="primary" 
+            onClick={() => navigate('/tickets')}
+            sx={{ 
+              mr: 1,
+              backgroundColor: 'rgba(25, 118, 210, 0.08)'
+            }}
+          >
+            <ArrowBackIcon />
+          </IconButton>
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>
+            Заявка №{ticket.id}
+          </Typography>
+        </Box>
+        
+        {canEdit && (
+          <Button
+            variant="outlined"
+            startIcon={<EditIcon />}
+            onClick={() => setEditDialogOpen(true)}
+            sx={{ borderRadius: 2 }}
+          >
+            Редактировать
+          </Button>
+        )}
+      </Box>
+
+      {/* Сообщения об ошибках */}
       {actionError && (
-        <Alert severity="error" sx={{ mb: 3 }}>
+        <Alert 
+          severity="error" 
+          sx={{ mb: 3, borderRadius: 2 }}
+          onClose={() => setActionError(null)}
+        >
           {actionError}
         </Alert>
       )}
 
-      {/* Основная информация о тикете - по макету со скриншота */}
-      <Paper 
-        elevation={0}
+      {/* Основная информация о заявке */}
+      <Card 
         sx={{ 
           mb: 3, 
-          p: 3, 
-          border: '1px solid #e0e0e0', 
-          borderRadius: 1, 
-          bgcolor: 'white' 
+          borderRadius: 4, 
+          background: 'linear-gradient(120deg, #2196f3 0%, #21cbf3 100%)',
+          color: 'white',
+          boxShadow: '0 4px 20px rgba(33, 150, 243, 0.3)',
         }}
       >
-        {/* Статус и приоритет как на скриншоте */}
-        <Box sx={{ display: 'flex', mb: 4 }}>
-          <Chip 
-            label={formatStatus(ticket.status)} 
-            color={statusColors[ticket.status] || 'default'}
-            sx={{ 
-              borderRadius: '20px',
-              mr: 2
-            }}
-          />
-          <Chip 
-            label={`Приоритет: ${formatPriority(ticket.priority)}`} 
-            color={priorityColors[ticket.priority] || 'default'}
-            sx={{ 
-              borderRadius: '20px'
-            }}
-          />
-        </Box>
-
-        {/* Информация о тикете в 4 колонки */}
-        <Grid container spacing={4}>
-          {/* Создан */}
-          <Grid item xs={12} sm={6} md={3}>
-            <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
-              <CalendarIcon color="primary" sx={{ mt: 0.5, mr: 1 }} />
-              <Box>
-                <Typography variant="body2" color="textSecondary">
-                  Создан:
-                </Typography>
-                <Typography variant="body1">
-                  {formatDate(ticket.created_at)}
-                </Typography>
-              </Box>
-            </Box>
-          </Grid>
-
-          {/* Автор */}
-          <Grid item xs={12} sm={6} md={3}>
-            <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
-              <PersonIcon color="primary" sx={{ mt: 0.5, mr: 1 }} />
-              <Box>
-                <Typography variant="body2" color="textSecondary">
-                  Автор:
-                </Typography>
-                <Typography variant="body1">
-                  {getCreatorName(ticket.creator_id)}
-                </Typography>
-              </Box>
-            </Box>
-          </Grid>
-
-          {/* Обновлен */}
-          <Grid item xs={12} sm={6} md={3}>
-            <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
-              <TimeIcon color="primary" sx={{ mt: 0.5, mr: 1 }} />
-              <Box>
-                <Typography variant="body2" color="textSecondary">
-                  Обновлен:
-                </Typography>
-                <Typography variant="body1">
-                  {formatDate(ticket.updated_at)}
-                </Typography>
-              </Box>
-            </Box>
-          </Grid>
-
-          {/* Ответственный */}
-          <Grid item xs={12} sm={6} md={3}>
-            <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
-              <PersonIcon color="primary" sx={{ mt: 0.5, mr: 1 }} />
-              <Box>
-                <Typography variant="body2" color="textSecondary">
-                  Ответственный:
-                </Typography>
-                <Typography variant="body1">
-                  {getAssigneeName(ticket.assigned_to_id)}
-                </Typography>
-              </Box>
-            </Box>
-          </Grid>
-        </Grid>
-      </Paper>
-
-      {/* Карточки для нижних секций */}
-      <Grid container spacing={3}>
-        {/* Действия */}
-        <Grid item xs={12} md={4}>
-          <Card 
-            elevation={0} 
-            sx={{ 
-              border: '1px solid #e0e0e0', 
-              height: '100%'
-            }}
-          >
-            <CardHeader 
-              title={
-                <Box display="flex" alignItems="center">
-                  <SettingsIcon color="primary" sx={{ mr: 1 }} />
-                  <Typography variant="h6">Действия</Typography>
-                </Box>
-              }
+        <CardContent sx={{ p: 2.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Avatar 
               sx={{ 
-                borderBottom: '1px solid #e0e0e0',
-                p: 2
+                width: 56, 
+                height: 56, 
+                bgcolor: 'white', 
+                color: '#2196f3',
+                boxShadow: '0 4px 10px rgba(0,0,0,0.15)'
               }}
-            />
-            <CardContent sx={{ p: 2 }}>
-              {isAdmin && (
-                <Box sx={{ mb: 2, p: 1, bgcolor: 'grey.100', borderRadius: 1 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    Роль: admin
-                  </Typography>
-                </Box>
-              )}
-              
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                {/* Кнопка взятия в работу */}
-                {canTakeTicket && !ticket.assigned_to_id && (
-                  <Button
-                    fullWidth
-                    variant="outlined"
-                    color="primary"
-                    startIcon={<PlayArrowIcon />}
-                    onClick={handleSelfAssign}
-                  >
-                    ВЗЯТЬ В РАБОТУ
-                  </Button>
-                )}
-                
-                {/* Кнопка закрытия заявки */}
-                {canCloseTicket && ticket.status !== 'closed' && (
-                  <Button
-                    fullWidth
-                    variant="outlined"
-                    color="success"
-                    startIcon={<CheckCircleIcon />}
-                    onClick={handleCloseTicket}
-                  >
-                    ОТМЕТИТЬ КАК ВЫПОЛНЕННУЮ
-                  </Button>
-                )}
-                
-                {/* Кнопка удаления заявки */}
-                {canDeleteTicket && (
-                  <Button
-                    fullWidth
-                    variant="outlined"
-                    color="error"
-                    startIcon={<DeleteIcon />}
-                    onClick={() => setDeleteDialogOpen(true)}
-                  >
-                    УДАЛИТЬ ЗАЯВКУ
-                  </Button>
-                )}
-                
-                {/* Кнопка редактирования заявки */}
-                {canEditTicket && (
-                  <Button
-                    fullWidth
-                    variant="outlined"
-                    color="primary"
-                    startIcon={<EditIcon />}
-                    onClick={() => setEditDialogOpen(true)}
-                  >
-                    РЕДАКТИРОВАТЬ ЗАЯВКУ
-                  </Button>
-                )}
+            >
+              <AssignmentIcon fontSize="large" />
+            </Avatar>
+            <Box sx={{ ml: 2 }}>
+              <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.1rem' }}>
+                {ticket.title}
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                <Chip 
+                  label={formatStatus(ticket.status)} 
+                  size="small" 
+                  sx={{ 
+                    bgcolor: 'rgba(255, 255, 255, 0.2)', 
+                    color: 'white',
+                    fontWeight: 500,
+                    fontSize: '0.75rem'
+                  }}
+                />
+                <Chip 
+                  label={formatPriority(ticket.priority)} 
+                  size="small"
+                  sx={{ 
+                    bgcolor: 'rgba(255, 255, 255, 0.2)', 
+                    color: 'white',
+                    fontWeight: 500,
+                    fontSize: '0.75rem'
+                  }}
+                />
               </Box>
-              
-              {!canDeleteTicket && !canTakeTicket && !canCloseTicket && (
-                <Typography color="text.secondary" align="center" variant="body2">
-                  Нет доступных действий
-                </Typography>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
+            </Box>
+          </Box>
+        </CardContent>
+      </Card>
 
-        {/* Описание тикета */}
+      <Grid container spacing={3}>
+        {/* Информация о заявке */}
         <Grid item xs={12} md={8}>
           <Card 
-            elevation={0} 
             sx={{ 
-              border: '1px solid #e0e0e0', 
+              borderRadius: 4, 
+              overflow: 'hidden',
+              boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
               height: '100%'
             }}
           >
-            <CardHeader 
-              title={
-                <Box display="flex" alignItems="center">
-                  <DescriptionIcon color="primary" sx={{ mr: 1 }} />
-                  <Typography variant="h6">Описание</Typography>
-                </Box>
-              }
-              sx={{ 
-                borderBottom: '1px solid #e0e0e0',
-                p: 2
-              }}
-            />
             <CardContent sx={{ p: 2 }}>
-              <Typography variant="body1">
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+                <DescriptionIcon sx={{ mr: 1, color: 'action.active' }} />
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  Описание
+                </Typography>
+              </Box>
+              <Divider sx={{ mb: 2 }} />
+              
+              <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', mb: 3 }}>
                 {ticket.description}
               </Typography>
+              
+              <Box sx={{ mb: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                  <RoomIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary', fontSize: '1rem' }} />
+                  <Typography variant="body2" color="textSecondary">
+                    Кабинет: {ticket.room_number || 'Не указан'}
+                  </Typography>
+                </Box>
+                
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                  <CalendarIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary', fontSize: '1rem' }} />
+                  <Typography variant="body2" color="textSecondary">
+                    Создана: {formatDate(ticket.created_at)}
+                  </Typography>
+                </Box>
+                
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                  <TimeIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary', fontSize: '1rem' }} />
+                  <Typography variant="body2" color="textSecondary">
+                    Обновлена: {formatDate(ticket.updated_at)}
+                  </Typography>
+                </Box>
+              </Box>
             </CardContent>
           </Card>
         </Grid>
-
-        {/* Комментарии */}
-        <Grid item xs={12}>
+        
+        {/* Информация о пользователях */}
+        <Grid item xs={12} md={4}>
           <Card 
-            elevation={0} 
             sx={{ 
-              border: '1px solid #e0e0e0'
+              borderRadius: 4, 
+              overflow: 'hidden',
+              boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+              height: '100%'
             }}
           >
-            <CardHeader 
-              title={
-                <Box display="flex" alignItems="center">
-                  <CommentIcon color="primary" sx={{ mr: 1 }} />
-                  <Typography variant="h6">Комментарии ({comments.length})</Typography>
-                </Box>
-              }
-              sx={{ 
-                borderBottom: '1px solid #e0e0e0',
-                p: 2
-              }}
-            />
             <CardContent sx={{ p: 2 }}>
-              {comments.length === 0 ? (
-                <Typography variant="body1" color="text.secondary">
-                  Нет комментариев
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+                <PersonIcon sx={{ mr: 1, color: 'action.active' }} />
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  Участники
                 </Typography>
-              ) : (
-                <Box>
-                  {comments.map(comment => (
-                    <Box 
-                      key={comment.id} 
-                      sx={{ 
-                        mb: 2, 
-                        pb: 2, 
-                        borderBottom: '1px solid',
-                        borderColor: 'divider'
-                      }}
-                    >
-                      <Box 
-                        sx={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          justifyContent: 'space-between'
-                        }}
-                      >
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Avatar 
-                            sx={{ 
-                              width: 32, 
-                              height: 32, 
-                              mr: 1, 
-                              backgroundColor: 'primary.main' 
-                            }}
-                          >
-                            U
-                          </Avatar>
-                          <Typography variant="subtitle1" fontWeight="bold">
-                            Неизвестный пользователь
-                          </Typography>
-                        </Box>
-                        <Typography variant="caption" color="text.secondary">
-                          {formatDate(comment.created_at)}
-                        </Typography>
-                      </Box>
-                      <Typography 
-                        variant="body1" 
-                        sx={{ mt: 1, pl: '40px' }}
-                        component="div"
-                        whiteSpace="pre-line"
-                      >
-                        {comment.content}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Box>
-              )}
-
-              {/* Форма добавления комментария */}
-              <Box 
-                component="form" 
-                onSubmit={handleSubmitComment} 
-                sx={{ mt: 3 }}
-              >
-                <TextField
-                  fullWidth
-                  placeholder="Добавить коммента..."
-                  multiline
-                  rows={3}
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  variant="outlined"
-                  sx={{ mb: 2 }}
-                />
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <Button 
-                    type="submit" 
-                    variant="contained" 
-                    endIcon={<SendIcon />}
-                    disabled={!newComment.trim()}
+              </Box>
+              <Divider sx={{ mb: 2 }} />
+              
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 600 }}>
+                  Создатель:
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Avatar 
                     sx={{ 
-                      bgcolor: 'grey.400',
-                      '&:hover': { bgcolor: 'grey.500' }
+                      width: 32, 
+                      height: 32, 
+                      bgcolor: 'primary.main',
+                      fontSize: '0.8rem',
+                      mr: 1
                     }}
                   >
-                    ОТПРАВИТЬ
-                  </Button>
+                    {ticket.creator_id ? getCreatorName(ticket.creator_id).substring(0, 2) : "?"}
+                  </Avatar>
+                  <Typography variant="body2">
+                    {getCreatorName(ticket.creator_id)}
+                  </Typography>
                 </Box>
+              </Box>
+              
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 600 }}>
+                  Исполнитель:
+                </Typography>
+                {ticket.assigned_to_id ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Avatar 
+                      sx={{ 
+                        width: 32, 
+                        height: 32, 
+                        bgcolor: '#29b6f6',
+                        fontSize: '0.8rem',
+                        mr: 1
+                      }}
+                    >
+                      <EngineeringIcon fontSize="small" />
+                    </Avatar>
+                    <Typography variant="body2">
+                      {getAssigneeName(ticket.assigned_to_id)}
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Typography variant="body2" color="textSecondary">
+                    Исполнитель не назначен
+                  </Typography>
+                )}
               </Box>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
-      {/* Диалог подтверждения удаления */}
-      <Dialog
-        open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
+      {/* Кнопки действий */}
+      {(showSelfAssignButton || showCloseButton || showDeleteButton) && (
+        <Box sx={{ 
+          display: 'flex', 
+          flexWrap: 'wrap', 
+          gap: 2, 
+          mt: 3, 
+          mb: 3 
+        }}>
+          {showSelfAssignButton && (
+            <Button 
+              variant="contained" 
+              color="primary" 
+              startIcon={<AssignmentIndIcon />} 
+              onClick={handleSelfAssign}
+              sx={{ 
+                borderRadius: 2,
+                boxShadow: '0 4px 10px rgba(33, 150, 243, 0.3)'
+              }}
+            >
+              Взять в работу
+            </Button>
+          )}
+          
+          {showCloseButton && (
+            <Button 
+              variant="contained" 
+              color="success" 
+              startIcon={<CheckCircleIcon />} 
+              onClick={handleCloseTicket}
+              sx={{ 
+                borderRadius: 2,
+                boxShadow: '0 4px 10px rgba(102, 187, 106, 0.3)'
+              }}
+            >
+              Отметить как выполненную
+            </Button>
+          )}
+          
+          {showDeleteButton && (
+            <Button 
+              variant="contained" 
+              color="error" 
+              startIcon={<DeleteIcon />} 
+              onClick={() => setDeleteDialogOpen(true)}
+              sx={{ 
+                borderRadius: 2,
+                boxShadow: '0 4px 10px rgba(244, 67, 54, 0.3)'
+              }}
+            >
+              Удалить заявку
+            </Button>
+          )}
+        </Box>
+      )}
+
+      {/* Комментарии */}
+      <Card 
+        sx={{ 
+          mt: 3,
+          borderRadius: 4, 
+          overflow: 'hidden',
+          boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+        }}
       >
-        <DialogTitle>Удаление тикета</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            {isAdmin ? (
-              `Вы действительно хотите удалить тикет #${ticket.id}: ${ticket.title}? Это действие нельзя будет отменить.`
-            ) : (
-              `Вы действительно хотите скрыть тикет #${ticket.id}: ${ticket.title}? Вы больше не будете видеть эту заявку, но администраторы и технические специалисты по-прежнему будут иметь к ней доступ.`
-            )}
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)} color="primary">
-            Отмена
-          </Button>
-          <Button onClick={handleDeleteTicket} color="error" startIcon={<DeleteIcon />}>
-            {isAdmin ? 'Удалить' : 'Скрыть'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        <CardContent sx={{ p: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+            <CommentIcon sx={{ mr: 1, color: 'action.active' }} />
+            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+              Комментарии
+            </Typography>
+          </Box>
+          <Divider sx={{ mb: 2 }} />
+          
+          {comments && comments.length > 0 ? (
+            <List sx={{ mb: 2, p: 0 }}>
+              {comments.map(comment => (
+                <ListItem 
+                  key={comment.id} 
+                  alignItems="flex-start"
+                  sx={{ 
+                    px: 0, 
+                    py: 1.5,
+                    borderBottom: '1px solid rgba(0,0,0,0.08)'
+                  }}
+                >
+                  <ListItemAvatar>
+                    <Avatar 
+                      sx={{ 
+                        width: 40, 
+                        height: 40, 
+                        bgcolor: 'primary.light',
+                        fontSize: '0.875rem'
+                      }}
+                    >
+                      {comment.author?.full_name?.substring(0, 2) || "?"}
+                    </Avatar>
+                  </ListItemAvatar>
+                  <ListItemText
+                    primary={
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                          {comment.author?.full_name || "Пользователь"}
+                        </Typography>
+                        <Typography variant="caption" color="textSecondary">
+                          {formatDate(comment.created_at)}
+                        </Typography>
+                      </Box>
+                    }
+                    secondary={
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          mt: 0.5, 
+                          whiteSpace: 'pre-wrap' 
+                        }}
+                      >
+                        {comment.content}
+                      </Typography>
+                    }
+                  />
+                </ListItem>
+              ))}
+            </List>
+          ) : (
+            <Box sx={{ textAlign: 'center', my: 3, p: 2 }}>
+              <CommentIcon sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
+              <Typography color="textSecondary">
+                Комментариев пока нет
+              </Typography>
+            </Box>
+          )}
+          
+          {/* Форма добавления комментария */}
+          <Box 
+            component="form" 
+            onSubmit={handleSubmitComment}
+            sx={{ display: 'flex', flexDirection: 'column' }}
+          >
+            <TextField
+              placeholder="Добавьте комментарий..."
+              multiline
+              rows={3}
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              variant="outlined"
+              fullWidth
+              sx={{ 
+                mb: 2,
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                }
+              }}
+            />
+            <Button 
+              type="submit" 
+              variant="contained" 
+              color="primary" 
+              endIcon={<SendIcon />}
+              disabled={!newComment.trim()}
+              sx={{ 
+                alignSelf: 'flex-end',
+                borderRadius: 2,
+                boxShadow: '0 4px 10px rgba(33, 150, 243, 0.3)'
+              }}
+            >
+              Отправить
+            </Button>
+          </Box>
+        </CardContent>
+      </Card>
 
       {/* Диалог редактирования заявки */}
-      <Dialog
-        open={editDialogOpen}
+      <Dialog 
+        open={editDialogOpen} 
         onClose={() => setEditDialogOpen(false)}
         fullWidth
-        maxWidth="md"
+        maxWidth="sm"
+        PaperProps={{ sx: { borderRadius: 3 } }}
       >
-        <DialogTitle>Редактирование заявки</DialogTitle>
+        <DialogTitle sx={{ pb: 1 }}>
+          Редактирование заявки
+        </DialogTitle>
         <DialogContent>
           <TextField
+            autoFocus
+            margin="dense"
+            name="title"
+            label="Заголовок"
             fullWidth
             variant="outlined"
-            label="Заголовок заявки"
-            name="title"
             value={editFormData.title}
             onChange={handleEditFormChange}
             error={!!editFormErrors.title}
             helperText={editFormErrors.title}
-            required
-            margin="normal"
+            sx={{ 
+              mb: 2,
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+              }
+            }}
           />
-          
           <TextField
-            fullWidth
-            label="Описание проблемы"
+            margin="dense"
             name="description"
+            label="Описание"
+            fullWidth
+            multiline
+            rows={4}
+            variant="outlined"
             value={editFormData.description}
             onChange={handleEditFormChange}
             error={!!editFormErrors.description}
             helperText={editFormErrors.description}
-            multiline
-            rows={6}
-            required
-            margin="normal"
+            sx={{ 
+              mb: 2,
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+              }
+            }}
           />
-          
           <TextField
+            margin="dense"
+            name="room_number"
+            label="Номер кабинета"
             fullWidth
             variant="outlined"
-            label="Номер кабинета"
-            name="room_number"
             value={editFormData.room_number}
             onChange={handleEditFormChange}
             error={!!editFormErrors.room_number}
             helperText={editFormErrors.room_number}
-            required
-            margin="normal"
-            placeholder="Например: 101, 202A"
+            sx={{ 
+              mb: 2,
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+              }
+            }}
           />
-          
-          <FormControl fullWidth margin="normal">
-            <InputLabel id="priority-label">Приоритет</InputLabel>
+          <FormControl 
+            fullWidth 
+            margin="dense"
+            sx={{ 
+              mb: 2,
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+              }
+            }}
+          >
+            <InputLabel>Приоритет</InputLabel>
             <Select
-              labelId="priority-label"
               name="priority"
               value={editFormData.priority}
               onChange={handleEditFormChange}
@@ -774,22 +852,80 @@ const TicketDetailsPage = () => {
             </Select>
           </FormControl>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setEditDialogOpen(false)}>Отмена</Button>
-          <Button onClick={handleEditTicket} color="primary" variant="contained">
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button 
+            onClick={() => setEditDialogOpen(false)} 
+            variant="outlined"
+            sx={{ borderRadius: 2 }}
+          >
+            Отмена
+          </Button>
+          <Button 
+            onClick={handleEditTicket} 
+            variant="contained"
+            sx={{ 
+              borderRadius: 2,
+              boxShadow: '0 4px 10px rgba(33, 150, 243, 0.3)'
+            }}
+          >
             Сохранить
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Уведомление об успешном действии */}
+      {/* Диалог подтверждения удаления */}
+      <Dialog 
+        open={deleteDialogOpen} 
+        onClose={() => setDeleteDialogOpen(false)}
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle>
+          Удаление заявки
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Вы уверены, что хотите удалить эту заявку? Это действие нельзя отменить.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button 
+            onClick={() => setDeleteDialogOpen(false)} 
+            variant="outlined"
+            sx={{ borderRadius: 2 }}
+          >
+            Отмена
+          </Button>
+          <Button 
+            onClick={handleDeleteTicket} 
+            color="error" 
+            variant="contained"
+            sx={{ 
+              borderRadius: 2,
+              boxShadow: '0 4px 10px rgba(244, 67, 54, 0.3)'
+            }}
+          >
+            Удалить
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Снэкбар с сообщением об успешном действии */}
       <Snackbar
         open={!!successMessage}
-        autoHideDuration={6000}
+        autoHideDuration={5000}
         onClose={() => setSuccessMessage('')}
-        message={successMessage}
-      />
-    </Container>
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={() => setSuccessMessage('')} 
+          severity="success" 
+          variant="filled"
+          sx={{ borderRadius: 2 }}
+        >
+          {successMessage}
+        </Alert>
+      </Snackbar>
+    </Box>
   );
 };
 

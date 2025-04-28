@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Typography, 
-  Container, 
-  Paper, 
   Box, 
   Grid,
   Avatar,
@@ -26,14 +24,18 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Badge
+  Badge,
+  Alert,
+  IconButton
 } from '@mui/material';
-import { Email as EmailIcon, Person as PersonIcon, VpnKey as KeyIcon, Assignment as AssignmentIcon, CheckCircle as CheckCircleIcon, Pending as PendingIcon, Error as ErrorIcon, ExpandMore as ExpandMoreIcon, Settings as SettingsIcon, Notifications as NotificationsIcon, Security as SecurityIcon, Check as CheckIcon } from '@mui/icons-material';
+import { Email as EmailIcon, Person as PersonIcon, VpnKey as KeyIcon, Assignment as AssignmentIcon, CheckCircle as CheckCircleIcon, Pending as PendingIcon, Error as ErrorIcon, ExpandMore as ExpandMoreIcon, Settings as SettingsIcon, Notifications as NotificationsIcon, Security as SecurityIcon, Check as CheckIcon, ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { usersAPI, ticketsAPI } from '../api/api';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 
 const ProfilePage = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [openPasswordDialog, setOpenPasswordDialog] = useState(false);
@@ -180,76 +182,163 @@ const ProfilePage = () => {
         Math.round((resolvedTickets.length / (assignedTickets.length + resolvedTickets.length)) * 100) : 0
     };
   }, [tickets, user]);
+
+  // Переход на главную
+  const handleBack = () => {
+    navigate('/');
+  };
   
   if (!user) {
     return (
-      <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
+      <Box sx={{ 
+        width: '100%', 
+        p: 2,
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center',
+        minHeight: '50vh'
+      }}>
         <CircularProgress />
-      </Container>
+      </Box>
     );
   }
   
   return (
-    <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
-      <Typography variant="h4" gutterBottom>
-        Профиль пользователя
-      </Typography>
-      
-      <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
-        <Grid container spacing={3} alignItems="center">
-          <Grid item>
+    <Box sx={{ 
+      width: '100%', 
+      maxWidth: '100vw', 
+      overflow: 'hidden',
+      position: 'relative',
+      boxSizing: 'border-box',
+      p: 2
+    }}>
+      {/* Заголовок и кнопка назад */}
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: 2,
+        width: '100%'
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <IconButton 
+            color="primary" 
+            onClick={handleBack}
+            sx={{ 
+              mr: 1,
+              backgroundColor: 'rgba(25, 118, 210, 0.08)'
+            }}
+          >
+            <ArrowBackIcon />
+          </IconButton>
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>
+            Мой профиль
+          </Typography>
+        </Box>
+      </Box>
+
+      {/* Основная информация */}
+      <Card 
+        sx={{ 
+          mb: 3, 
+          borderRadius: 4, 
+          background: 'linear-gradient(120deg, #2196f3 0%, #21cbf3 100%)',
+          color: 'white',
+          boxShadow: '0 4px 20px rgba(33, 150, 243, 0.3)',
+        }}
+      >
+        <CardContent sx={{ p: 2.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <Avatar 
               sx={{ 
-                width: 100, 
-                height: 100, 
-                bgcolor: getRoleColor(user.role),
-                fontSize: '2rem'
+                width: 70, 
+                height: 70, 
+                bgcolor: 'white', 
+                color: getRoleColor(user.role),
+                fontSize: '1.8rem',
+                fontWeight: 'bold',
+                boxShadow: '0 4px 10px rgba(0,0,0,0.15)'
               }}
             >
               {getInitials(user.full_name || user.username)}
             </Avatar>
-          </Grid>
-          <Grid item xs>
-            <Typography variant="h5">{user.full_name || user.username}</Typography>
-            <Typography variant="subtitle1" color="textSecondary">
-              {translateRole(user.role)}
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              ID: {user.id}
-            </Typography>
-          </Grid>
-        </Grid>
-      </Paper>
+            <Box sx={{ ml: 2 }}>
+              <Typography variant="h5" sx={{ fontWeight: 600, fontSize: '1.3rem' }}>
+                {user.full_name || user.username}
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
+                <Chip 
+                  label={translateRole(user.role)} 
+                  size="small" 
+                  sx={{ 
+                    bgcolor: 'rgba(255, 255, 255, 0.2)', 
+                    color: 'white',
+                    fontWeight: 500,
+                    fontSize: '0.75rem'
+                  }}
+                />
+                <Typography variant="body2" sx={{ ml: 1, opacity: 0.9 }}>
+                  ID: {user.id}
+                </Typography>
+              </Box>
+            </Box>
+          </Box>
+        </CardContent>
+      </Card>
       
       <Grid container spacing={3}>
+        {/* Контактная информация */}
         <Grid item xs={12} md={6}>
-          <Card elevation={2} sx={{ height: '100%' }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Контактная информация
-              </Typography>
+          <Card sx={{ 
+            borderRadius: 4, 
+            height: '100%',
+            boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+          }}>
+            <CardContent sx={{ p: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+                <PersonIcon sx={{ mr: 1, color: 'action.active' }} />
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  Контактная информация
+                </Typography>
+              </Box>
               <Divider sx={{ mb: 2 }} />
               
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <PersonIcon sx={{ mr: 2, color: 'text.secondary' }} />
+                <Avatar sx={{ 
+                  bgcolor: 'rgba(25, 118, 210, 0.08)', 
+                  color: '#2196f3',
+                  width: 36,
+                  height: 36,
+                  mr: 2
+                }}>
+                  <PersonIcon />
+                </Avatar>
                 <Box>
                   <Typography variant="body2" color="textSecondary">
                     Имя пользователя
                   </Typography>
-                  <Typography variant="body1">
+                  <Typography variant="body1" sx={{ fontWeight: 500 }}>
                     {user.username}
                   </Typography>
                 </Box>
               </Box>
               
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <EmailIcon sx={{ mr: 2, color: 'text.secondary' }} />
+                <Avatar sx={{ 
+                  bgcolor: 'rgba(25, 118, 210, 0.08)', 
+                  color: '#2196f3',
+                  width: 36,
+                  height: 36,
+                  mr: 2
+                }}>
+                  <EmailIcon />
+                </Avatar>
                 <Box>
                   <Typography variant="body2" color="textSecondary">
                     Email
                   </Typography>
-                  <Typography variant="body1">
-                    {user.email}
+                  <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                    {user.email || 'Не указан'}
                   </Typography>
                 </Box>
               </Box>
@@ -257,331 +346,398 @@ const ProfilePage = () => {
           </Card>
         </Grid>
         
+        {/* Безопасность */}
         <Grid item xs={12} md={6}>
-          <Card elevation={2} sx={{ height: '100%' }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Безопасность
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <KeyIcon sx={{ mr: 2, color: 'text.secondary' }} />
-                <Box sx={{ flexGrow: 1 }}>
-                  <Typography variant="body2" color="textSecondary">
-                    Пароль
-                  </Typography>
-                  <Typography variant="body1">
-                    ••••••••
-                  </Typography>
-                </Box>
-                <Button 
-                  variant="outlined" 
-                  color="primary" 
-                  size="small"
-                  onClick={() => setOpenPasswordDialog(true)}
-                >
-                  Изменить
-                </Button>
-              </Box>
-              
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="body2" color="textSecondary">
-                  Статус аккаунта: {user.is_active ? 'Активен' : 'Неактивен'}
+          <Card sx={{ 
+            borderRadius: 4, 
+            height: '100%',
+            boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+          }}>
+            <CardContent sx={{ p: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+                <SecurityIcon sx={{ mr: 1, color: 'action.active' }} />
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  Безопасность
                 </Typography>
               </Box>
+              <Divider sx={{ mb: 2 }} />
+              
+              <Button
+                variant="contained"
+                startIcon={<KeyIcon />}
+                onClick={() => setOpenPasswordDialog(true)}
+                sx={{ 
+                  borderRadius: 2,
+                  boxShadow: '0 4px 10px rgba(33, 150, 243, 0.3)',
+                  mb: 2
+                }}
+              >
+                Изменить пароль
+              </Button>
+              
+              <Typography variant="body2" color="textSecondary">
+                Рекомендуется регулярно менять пароль для повышения безопасности аккаунта.
+              </Typography>
             </CardContent>
           </Card>
         </Grid>
         
+        {/* Статистика заявок */}
         <Grid item xs={12}>
-          <Card elevation={2}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Статистика заявок
-              </Typography>
+          <Card sx={{ 
+            borderRadius: 4, 
+            boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+          }}>
+            <CardContent sx={{ p: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+                <AssignmentIcon sx={{ mr: 1, color: 'action.active' }} />
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  Статистика заявок
+                </Typography>
+              </Box>
               <Divider sx={{ mb: 2 }} />
               
-              {isTicketsLoading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-                  <CircularProgress />
-                </Box>
-              ) : (
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6} md={3}>
-                    <Box sx={{ textAlign: 'center', p: 2 }}>
-                      <Typography variant="h4" color="primary">{userTicketStats.total}</Typography>
-                      <Typography variant="body2" color="textSecondary">Всего заявок</Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={3}>
-                    <Box sx={{ textAlign: 'center', p: 2 }}>
-                      <Typography variant="h4" color="info.main">{userTicketStats.new}</Typography>
-                      <Typography variant="body2" color="textSecondary">Новых</Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={3}>
-                    <Box sx={{ textAlign: 'center', p: 2 }}>
-                      <Typography variant="h4" color="warning.main">{userTicketStats.inProgress}</Typography>
-                      <Typography variant="body2" color="textSecondary">В работе</Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={3}>
-                    <Box sx={{ textAlign: 'center', p: 2 }}>
-                      <Typography variant="h4" color="success.main">{userTicketStats.closed}</Typography>
-                      <Typography variant="body2" color="textSecondary">Завершено</Typography>
-                    </Box>
-                  </Grid>
+              <Grid container spacing={2}>
+                <Grid item xs={6} sm={3}>
+                  <Card sx={{ 
+                    bgcolor: 'rgba(33, 150, 243, 0.08)', 
+                    borderRadius: 3, 
+                    boxShadow: 'none' 
+                  }}>
+                    <CardContent sx={{ textAlign: 'center', p: 2, '&:last-child': { pb: 2 } }}>
+                      <Typography variant="h5" sx={{ fontWeight: 700, color: '#2196f3' }}>
+                        {userTicketStats.total}
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary">
+                        Всего заявок
+                      </Typography>
+                    </CardContent>
+                  </Card>
                 </Grid>
-              )}
-              
-              {tickets && tickets.length > 0 && (
-                <>
-                  <Typography variant="subtitle1" sx={{ mt: 3, mb: 1 }}>
-                    Последние заявки:
-                  </Typography>
-                  <List>
-                    {tickets
-                      .filter(ticket => ticket.creator_id === user.id)
-                      .slice(0, 3)
-                      .map(ticket => (
-                        <ListItem key={ticket.id}>
-                          <ListItemIcon>
-                            <AssignmentIcon />
-                          </ListItemIcon>
-                          <ListItemText 
-                            primary={ticket.title} 
-                            secondary={`Приоритет: ${ticket.priority}`} 
-                          />
-                          <Chip 
-                            label={ticket.status} 
-                            color={
-                              ticket.status === 'new' ? 'info' :
-                              ticket.status === 'in_progress' ? 'warning' :
-                              ticket.status === 'closed' || ticket.status === 'completed' ? 'success' :
-                              'default'
-                            } 
-                            size="small" 
-                          />
-                        </ListItem>
-                      ))}
-                  </List>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-        
-        {/* Секция статистики работы для сотрудников */}
-        {user && (user.role === 'admin' || user.role === 'superuser') && (
-          <Grid item xs={12}>
-            <Card elevation={2}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Рабочая статистика
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
                 
-                {isTicketsLoading ? (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-                    <CircularProgress />
-                  </Box>
-                ) : (
+                <Grid item xs={6} sm={3}>
+                  <Card sx={{ 
+                    bgcolor: 'rgba(255, 167, 38, 0.08)', 
+                    borderRadius: 3, 
+                    boxShadow: 'none' 
+                  }}>
+                    <CardContent sx={{ textAlign: 'center', p: 2, '&:last-child': { pb: 2 } }}>
+                      <Typography variant="h5" sx={{ fontWeight: 700, color: '#ffa726' }}>
+                        {userTicketStats.new}
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary">
+                        Новых
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                
+                <Grid item xs={6} sm={3}>
+                  <Card sx={{ 
+                    bgcolor: 'rgba(41, 182, 246, 0.08)', 
+                    borderRadius: 3, 
+                    boxShadow: 'none' 
+                  }}>
+                    <CardContent sx={{ textAlign: 'center', p: 2, '&:last-child': { pb: 2 } }}>
+                      <Typography variant="h5" sx={{ fontWeight: 700, color: '#29b6f6' }}>
+                        {userTicketStats.inProgress}
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary">
+                        В работе
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                
+                <Grid item xs={6} sm={3}>
+                  <Card sx={{ 
+                    bgcolor: 'rgba(102, 187, 106, 0.08)', 
+                    borderRadius: 3, 
+                    boxShadow: 'none' 
+                  }}>
+                    <CardContent sx={{ textAlign: 'center', p: 2, '&:last-child': { pb: 2 } }}>
+                      <Typography variant="h5" sx={{ fontWeight: 700, color: '#66bb6a' }}>
+                        {userTicketStats.closed}
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary">
+                        Закрытых
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
+              
+              {user.role === 'agent' && (
+                <Box sx={{ mt: 3 }}>
+                  <Divider sx={{ mb: 2 }} />
+                  <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
+                    Эффективность работы
+                  </Typography>
+                  
                   <Grid container spacing={2}>
                     <Grid item xs={12} sm={4}>
-                      <Box sx={{ textAlign: 'center', p: 2 }}>
-                        <Badge badgeContent={workStats.assigned} color="primary" 
-                          sx={{ '& .MuiBadge-badge': { fontSize: '1rem', height: '1.5rem', minWidth: '1.5rem' } }}>
-                          <Box sx={{ width: 80, height: 80, position: 'relative' }}>
-                            <CircularProgress 
-                              variant="determinate" 
-                              value={workStats.resolutionRate} 
-                              size={80} 
-                              thickness={4}
-                              sx={{ color: 'success.main' }} 
-                            />
-                            <Box
-                              sx={{
-                                position: 'absolute',
-                                top: 0,
-                                left: 0,
-                                bottom: 0,
-                                right: 0,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                              }}
-                            >
-                              <Typography variant="h6" component="div">
-                                {`${workStats.resolutionRate}%`}
-                              </Typography>
-                            </Box>
-                          </Box>
-                        </Badge>
-                        <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
-                          Эффективность решения
-                        </Typography>
-                      </Box>
+                      <Card sx={{ 
+                        bgcolor: 'rgba(41, 182, 246, 0.08)', 
+                        borderRadius: 3, 
+                        boxShadow: 'none' 
+                      }}>
+                        <CardContent sx={{ textAlign: 'center', p: 2, '&:last-child': { pb: 2 } }}>
+                          <Typography variant="h5" sx={{ fontWeight: 700, color: '#29b6f6' }}>
+                            {workStats.assigned}
+                          </Typography>
+                          <Typography variant="body2" color="textSecondary">
+                            Назначено
+                          </Typography>
+                        </CardContent>
+                      </Card>
                     </Grid>
+                    
                     <Grid item xs={12} sm={4}>
-                      <Box sx={{ textAlign: 'center', p: 2 }}>
-                        <Typography variant="h4" color="warning.main">{workStats.assigned}</Typography>
-                        <Typography variant="body2" color="textSecondary">Назначено заявок</Typography>
-                      </Box>
+                      <Card sx={{ 
+                        bgcolor: 'rgba(102, 187, 106, 0.08)', 
+                        borderRadius: 3, 
+                        boxShadow: 'none' 
+                      }}>
+                        <CardContent sx={{ textAlign: 'center', p: 2, '&:last-child': { pb: 2 } }}>
+                          <Typography variant="h5" sx={{ fontWeight: 700, color: '#66bb6a' }}>
+                            {workStats.resolved}
+                          </Typography>
+                          <Typography variant="body2" color="textSecondary">
+                            Решено
+                          </Typography>
+                        </CardContent>
+                      </Card>
                     </Grid>
+                    
                     <Grid item xs={12} sm={4}>
-                      <Box sx={{ textAlign: 'center', p: 2 }}>
-                        <Typography variant="h4" color="success.main">{workStats.resolved}</Typography>
-                        <Typography variant="body2" color="textSecondary">Решено заявок</Typography>
-                      </Box>
+                      <Card sx={{ 
+                        bgcolor: 'rgba(102, 187, 106, 0.08)', 
+                        borderRadius: 3, 
+                        boxShadow: 'none' 
+                      }}>
+                        <CardContent sx={{ textAlign: 'center', p: 2, '&:last-child': { pb: 2 } }}>
+                          <Typography variant="h5" sx={{ fontWeight: 700, color: '#66bb6a' }}>
+                            {workStats.resolutionRate}%
+                          </Typography>
+                          <Typography variant="body2" color="textSecondary">
+                            Эффективность
+                          </Typography>
+                        </CardContent>
+                      </Card>
                     </Grid>
                   </Grid>
-                )}
-              </CardContent>
-            </Card>
-          </Grid>
-        )}
+                </Box>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
         
-        {/* Секция настроек пользователя */}
+        {/* Настройки */}
         <Grid item xs={12}>
-          <Card elevation={2}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <SettingsIcon color="primary" sx={{ mr: 1 }} />
-                <Typography variant="h6">Настройки пользователя</Typography>
+          <Card sx={{ 
+            borderRadius: 4, 
+            boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+          }}>
+            <CardContent sx={{ p: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+                <SettingsIcon sx={{ mr: 1, color: 'action.active' }} />
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  Настройки
+                </Typography>
               </Box>
               <Divider sx={{ mb: 2 }} />
               
-              <Accordion>
-                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <NotificationsIcon color="action" sx={{ mr: 1 }} />
-                    <Typography>Уведомления</Typography>
-                  </Box>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <FormControlLabel
-                    control={
-                      <Switch 
-                        checked={settings.emailNotifications} 
-                        onChange={handleSettingChange('emailNotifications')}
-                      />
+              <List disablePadding>
+                <ListItem 
+                  disableGutters
+                  secondaryAction={
+                    <Switch
+                      edge="end"
+                      checked={settings.emailNotifications}
+                      onChange={handleSettingChange('emailNotifications')}
+                    />
+                  }
+                >
+                  <ListItemIcon sx={{ minWidth: 40 }}>
+                    <Avatar sx={{ 
+                      bgcolor: 'rgba(25, 118, 210, 0.08)', 
+                      color: '#2196f3',
+                      width: 32,
+                      height: 32,
+                    }}>
+                      <NotificationsIcon sx={{ fontSize: '1.2rem' }} />
+                    </Avatar>
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary={
+                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                        Уведомления по email
+                      </Typography>
                     }
-                    label="Получать уведомления по email"
+                    secondary="Получать уведомления о новых комментариях и изменениях в заявках"
                   />
-                </AccordionDetails>
-              </Accordion>
-              
-              <Accordion>
-                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <SecurityIcon color="action" sx={{ mr: 1 }} />
-                    <Typography>Безопасность</Typography>
-                  </Box>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <FormControlLabel
-                    control={
-                      <Switch 
-                        checked={settings.autoLogout} 
-                        onChange={handleSettingChange('autoLogout')}
-                      />
+                </ListItem>
+                
+                <Divider component="li" sx={{ my: 1 }} />
+                
+                <ListItem 
+                  disableGutters
+                  secondaryAction={
+                    <Switch
+                      edge="end"
+                      checked={settings.darkMode}
+                      onChange={handleSettingChange('darkMode')}
+                    />
+                  }
+                >
+                  <ListItemIcon sx={{ minWidth: 40 }}>
+                    <Avatar sx={{ 
+                      bgcolor: 'rgba(25, 118, 210, 0.08)', 
+                      color: '#2196f3',
+                      width: 32,
+                      height: 32,
+                    }}>
+                      <SettingsIcon sx={{ fontSize: '1.2rem' }} />
+                    </Avatar>
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary={
+                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                        Темная тема
+                      </Typography>
                     }
-                    label="Автоматический выход через 30 минут"
+                    secondary="Переключить на темный режим отображения"
                   />
-                  <Box sx={{ mt: 2 }}>
-                    <Button
-                      variant="outlined"
-                      color="primary"
-                      startIcon={<KeyIcon />}
-                      onClick={() => setShowModal(true)}
-                    >
-                      Изменить пароль
-                    </Button>
-                  </Box>
-                </AccordionDetails>
-              </Accordion>
-              
-              <Accordion>
-                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <CheckIcon color="action" sx={{ mr: 1 }} />
-                    <Typography>Интерфейс</Typography>
-                  </Box>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <FormControlLabel
-                    control={
-                      <Switch 
-                        checked={settings.darkMode} 
-                        onChange={handleSettingChange('darkMode')}
-                      />
+                </ListItem>
+                
+                <Divider component="li" sx={{ my: 1 }} />
+                
+                <ListItem 
+                  disableGutters
+                  secondaryAction={
+                    <Switch
+                      edge="end"
+                      checked={settings.autoLogout}
+                      onChange={handleSettingChange('autoLogout')}
+                    />
+                  }
+                >
+                  <ListItemIcon sx={{ minWidth: 40 }}>
+                    <Avatar sx={{ 
+                      bgcolor: 'rgba(25, 118, 210, 0.08)', 
+                      color: '#2196f3',
+                      width: 32,
+                      height: 32,
+                    }}>
+                      <SecurityIcon sx={{ fontSize: '1.2rem' }} />
+                    </Avatar>
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary={
+                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                        Автоматический выход
+                      </Typography>
                     }
-                    label="Темный режим"
+                    secondary="Автоматически выходить из системы после 30 минут бездействия"
                   />
-                </AccordionDetails>
-              </Accordion>
+                </ListItem>
+              </List>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
       
-      {/* Диалог смены пароля */}
-      <Dialog open={openPasswordDialog} onClose={handleCloseDialog}>
-        <DialogTitle>Изменение пароля</DialogTitle>
+      {/* Диалог изменения пароля */}
+      <Dialog 
+        open={openPasswordDialog} 
+        onClose={handleCloseDialog}
+        fullWidth
+        maxWidth="xs"
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          Изменение пароля
+        </DialogTitle>
         <DialogContent>
+          {passwordError && (
+            <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
+              {passwordError}
+            </Alert>
+          )}
+          {success && (
+            <Alert severity="success" sx={{ mb: 2, borderRadius: 2 }}>
+              {success}
+            </Alert>
+          )}
+          
           <TextField
-            autoFocus
             margin="dense"
             label="Текущий пароль"
             type="password"
             fullWidth
-            variant="outlined"
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
-            sx={{ mb: 2 }}
+            variant="outlined"
+            sx={{ 
+              mb: 2,
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+              }
+            }}
           />
           <TextField
             margin="dense"
             label="Новый пароль"
             type="password"
             fullWidth
-            variant="outlined"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            sx={{ mb: 2 }}
+            variant="outlined"
+            sx={{ 
+              mb: 2,
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+              }
+            }}
           />
           <TextField
             margin="dense"
-            label="Подтвердите новый пароль"
+            label="Повторите новый пароль"
             type="password"
             fullWidth
-            variant="outlined"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
+            variant="outlined"
+            sx={{ 
+              mb: 1,
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+              }
+            }}
           />
-          {passwordError && (
-            <Typography color="error" variant="body2" sx={{ mt: 2 }}>
-              {passwordError}
-            </Typography>
-          )}
-          {success && (
-            <Typography color="success" variant="body2" sx={{ mt: 2 }}>
-              {success}
-            </Typography>
-          )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>Отмена</Button>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
           <Button 
-            onClick={handleChangePassword}
-            disabled={loading || !currentPassword || !newPassword || !confirmPassword}
+            onClick={handleCloseDialog} 
+            variant="outlined"
+            sx={{ borderRadius: 2 }}
+          >
+            Отмена
+          </Button>
+          <Button 
+            onClick={handleChangePassword} 
+            variant="contained"
+            disabled={loading}
+            sx={{ 
+              borderRadius: 2,
+              boxShadow: '0 4px 10px rgba(33, 150, 243, 0.3)'
+            }}
           >
             {loading ? <CircularProgress size={24} /> : 'Сохранить'}
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </Box>
   );
 };
 
