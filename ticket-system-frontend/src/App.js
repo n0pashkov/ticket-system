@@ -1,10 +1,10 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createTheme, ThemeProvider } from '@mui/material';
 import { Box, CircularProgress, Typography } from '@mui/material';
 
 // Context
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeModeProvider } from './context/ThemeContext';
 
 // Pages
 import LoginPage from './pages/LoginPage';
@@ -28,29 +28,6 @@ const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
       retry: 1,
     },
-  },
-});
-
-// Define theme
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#1976d2',
-    },
-    secondary: {
-      main: '#dc004e',
-    },
-  },
-  typography: {
-    fontFamily: [
-      '-apple-system',
-      'BlinkMacSystemFont',
-      '"Segoe UI"',
-      'Roboto',
-      '"Helvetica Neue"',
-      'Arial',
-      'sans-serif',
-    ].join(','),
   },
 });
 
@@ -104,7 +81,7 @@ const DashboardRouter = () => {
 
 function App() {
   return (
-    <ThemeProvider theme={theme}>
+    <ThemeModeProvider>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <Router>
@@ -196,7 +173,7 @@ function App() {
           </Router>
         </AuthProvider>
       </QueryClientProvider>
-    </ThemeProvider>
+    </ThemeModeProvider>
   );
 }
 

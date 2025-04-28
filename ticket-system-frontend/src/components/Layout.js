@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
-  AppBar, Toolbar, Typography, Button, IconButton, 
+  AppBar, Toolbar, Typography, IconButton, 
   Drawer, List, ListItem, ListItemIcon, ListItemText, ListItemButton,
   Box, CssBaseline, Divider, Container, useMediaQuery, useTheme,
   BottomNavigation, BottomNavigationAction, Paper, Avatar, Badge, Chip
@@ -19,12 +19,13 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import { useAuth } from '../context/AuthContext';
+import { useThemeMode } from '../context/ThemeContext';
 
 const drawerWidth = 280;
 
 const Layout = ({ children }) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
+  const { darkMode, toggleTheme } = useThemeMode();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -35,22 +36,7 @@ const Layout = ({ children }) => {
   useEffect(() => {
     // Устанавливаем активный пункт меню на основе текущего пути
     setActiveItem(location.pathname);
-    
-    // Проверяем сохраненную тему
-    const savedTheme = localStorage.getItem('darkMode');
-    if (savedTheme) {
-      setDarkMode(savedTheme === 'true');
-    }
   }, [location.pathname]);
-
-  // Обработчик переключения темы
-  const toggleTheme = () => {
-    const newThemeValue = !darkMode;
-    setDarkMode(newThemeValue);
-    localStorage.setItem('darkMode', String(newThemeValue));
-    // Здесь можно добавить логику для фактического применения темы
-    // например, через ThemeProvider от Material UI
-  };
 
   // Определяем текущую активную вкладку для нижней навигации
   const getNavValue = () => {
@@ -134,7 +120,7 @@ const Layout = ({ children }) => {
   let menuItems = [...baseMenuItems];
   
   if (user?.role === 'admin') {
-    menuItems = [...baseMenuItems, ...userMenuItems, ...adminMenuItems];
+    menuItems = [...baseMenuItems, ...userMenuItems];
   } else if (user?.role === 'agent') {
     menuItems = [...baseMenuItems];
   } else {
@@ -350,7 +336,12 @@ const Layout = ({ children }) => {
   );
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box sx={{ 
+      display: 'flex',
+      bgcolor: 'background.default',
+      color: 'text.primary', 
+      minHeight: '100vh'
+    }}>
       <CssBaseline />
 
       {/* AppBar - верхняя панель навигации */}
@@ -359,9 +350,10 @@ const Layout = ({ children }) => {
         elevation={0}
         sx={{
           width: '100%',
-          backgroundColor: 'white',
+          backgroundColor: 'background.paper',
           color: 'text.primary',
-          borderBottom: '1px solid #e0e0e0',
+          borderBottom: '1px solid',
+          borderColor: 'divider',
           zIndex: (theme) => theme.zIndex.drawer + 1,
         }}
       >
@@ -399,10 +391,10 @@ const Layout = ({ children }) => {
             color="primary" 
             onClick={toggleTheme}
             sx={{ 
-              backgroundColor: 'rgba(33, 150, 243, 0.08)', 
+              backgroundColor: 'action.hover', 
               transition: 'all 0.2s',
               '&:hover': {
-                backgroundColor: 'rgba(33, 150, 243, 0.15)'
+                backgroundColor: 'action.selected'
               }
             }}
           >
@@ -424,8 +416,9 @@ const Layout = ({ children }) => {
             width: drawerWidth,
             boxSizing: 'border-box',
             borderRadius: { xs: 0, sm: '0 16px 16px 0' },
-            boxShadow: '0 0 20px rgba(0, 0, 0, 0.05)',
+            boxShadow: darkMode ? '0 0 20px rgba(0, 0, 0, 0.3)' : '0 0 20px rgba(0, 0, 0, 0.05)',
             border: 'none',
+            bgcolor: 'background.paper',
           },
         }}
       >
@@ -440,7 +433,6 @@ const Layout = ({ children }) => {
           p: { xs: 2, sm: 3 }, 
           width: '100%',
           pb: isMobile ? 8 : 3, // Добавляем отступ снизу для мобильных устройств
-          bgcolor: '#f5f7fa',
           minHeight: '100vh'
         }}
       >
@@ -461,7 +453,7 @@ const Layout = ({ children }) => {
             zIndex: 1100,
             borderRadius: '16px 16px 0 0',
             overflow: 'hidden',
-            boxShadow: '0 -2px 10px rgba(0, 0, 0, 0.1)'
+            boxShadow: darkMode ? '0 -2px 10px rgba(0, 0, 0, 0.3)' : '0 -2px 10px rgba(0, 0, 0, 0.1)'
           }} 
           elevation={3}
         >
