@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTicket } from '../hooks/useTickets';
@@ -30,7 +30,12 @@ import {
   Select,
   MenuItem,
   IconButton,
-  CircularProgress
+  CircularProgress,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemAvatar,
+  Paper
 } from '@mui/material';
 
 // Material UI иконки
@@ -45,7 +50,9 @@ import {
   CheckCircle as CheckCircleIcon,
   Engineering as EngineeringIcon,
   AssignmentInd as AssignmentIndIcon,
-  Room as RoomIcon
+  Room as RoomIcon,
+  Message as MessageIcon,
+  Comment as CommentIcon
 } from '@mui/icons-material';
 
 // Функция для форматирования статуса
@@ -77,6 +84,10 @@ const TicketDetailsPage = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const { getUserById } = useUsers();
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [closeWithMessageDialogOpen, setCloseWithMessageDialogOpen] = useState(false);
+  const [closeMessage, setCloseMessage] = useState('');
+  const [messages, setMessages] = useState([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const [editFormData, setEditFormData] = useState({
     title: '',
     description: '',
@@ -95,6 +106,21 @@ const TicketDetailsPage = () => {
     isError, 
     error
   } = useTicket(id);
+  
+  // Функция загрузки сообщений (обернутая в useCallback)
+  const loadMessages = useCallback(async () => {
+    if (!id) return;
+    
+    try {
+      setLoadingMessages(true);
+      const response = await ticketsAPI.getMessages(id);
+      setMessages(response.data);
+    } catch (err) {
+      console.error('Ошибка при загрузке сообщений:', err);
+    } finally {
+      setLoadingMessages(false);
+    }
+  }, [id]);
 
   // Получение тикета из кэша
   useEffect(() => {
@@ -112,8 +138,11 @@ const TicketDetailsPage = () => {
         priority: ticket.priority,
         room_number: ticket.room_number || ''
       });
+      
+      // Загружаем сообщения заявки
+      loadMessages();
     }
-  }, [ticket]);
+  }, [ticket, loadMessages]);
 
   // Форматирование даты
   const formatDate = (dateString) => {
@@ -283,6 +312,31 @@ const TicketDetailsPage = () => {
   
   // Показывать ли кнопку "удалить" (только для администраторов)
   const showDeleteButton = isAdmin && ticket;
+
+  // Обработчик для закрытия заявки с сообщением
+  const handleCloseTicketWithMessage = async () => {
+    if (!closeMessage.trim()) {
+      setActionError('Введите сообщение для закрытия заявки');
+      return;
+    }
+    
+    try {
+      setActionError(null);
+      await ticketsAPI.closeTicketWithMessage(id, closeMessage);
+      setSuccessMessage('Заявка успешно закрыта');
+      setCloseWithMessageDialogOpen(false);
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } catch (err) {
+      console.error('Ошибка при закрытии заявки с сообщением:', err);
+      setActionError('Не удалось закрыть заявку.');
+    }
+  };
+
+  // Показывать ли кнопку "закрыть с сообщением" (для агентов, когда тикет в работе и назначен на текущего агента)
+  const showCloseWithMessageButton = isAgentOrAdmin && ticket && ticket.status === 'in_progress' && 
+    (isAdmin || (user && ticket.assigned_to_id === user.id));
 
   if (isLoading) {
     return (
@@ -551,7 +605,7 @@ const TicketDetailsPage = () => {
       </Grid>
 
       {/* Кнопки действий */}
-      {(showSelfAssignButton || showCloseButton || showDeleteButton) && (
+      {(showSelfAssignButton || showCloseButton || showDeleteButton || showCloseWithMessageButton) && (
         <Box sx={{ 
           display: 'flex', 
           flexWrap: 'wrap', 
@@ -589,6 +643,21 @@ const TicketDetailsPage = () => {
             </Button>
           )}
           
+          {showCloseWithMessageButton && (
+            <Button 
+              variant="contained" 
+              color="success" 
+              startIcon={<CommentIcon />} 
+              onClick={() => setCloseWithMessageDialogOpen(true)}
+              sx={{ 
+                borderRadius: 2,
+                boxShadow: '0 4px 10px rgba(102, 187, 106, 0.3)'
+              }}
+            >
+              Закрыть с сообщением
+            </Button>
+          )}
+          
           {showDeleteButton && (
             <Button 
               variant="contained" 
@@ -605,6 +674,62 @@ const TicketDetailsPage = () => {
           )}
         </Box>
       )}
+
+      {/* Секция сообщений заявки */}
+      {messages.length > 0 ? (
+        <Box sx={{ mt: 4 }}>
+          <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, display: 'flex', alignItems: 'center' }}>
+            <MessageIcon sx={{ mr: 1 }} />
+            Сообщения заявки
+          </Typography>
+          <Paper sx={{ borderRadius: 4, p: 2 }}>
+            {loadingMessages ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                <CircularProgress size={30} />
+              </Box>
+            ) : (
+              <List sx={{ width: '100%', bgcolor: 'background.paper' }}>
+                {messages.map((message) => (
+                  <ListItem key={message.id} alignItems="flex-start" sx={{ px: 2, py: 1 }}>
+                    <ListItemAvatar>
+                      <Avatar sx={{ bgcolor: 'primary.main' }}>
+                        <PersonIcon />
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={<Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                        {getUserById(message.user_id)?.full_name || "Пользователь"}
+                      </Typography>}
+                      secondary={
+                        <React.Fragment>
+                          <Typography
+                            component="span"
+                            variant="body2"
+                            color="text.primary"
+                            sx={{ display: 'block', mb: 0.5 }}
+                          >
+                            {message.message}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {formatDate(message.created_at)}
+                          </Typography>
+                        </React.Fragment>
+                      }
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            )}
+          </Paper>
+        </Box>
+      ) : loadingMessages ? (
+        <Box sx={{ mt: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <CircularProgress size={24} sx={{ mr: 1 }} />
+          <Typography variant="body2" color="text.secondary">
+            Загрузка сообщений...
+          </Typography>
+        </Box>
+      ) : null}
 
       {/* Диалог редактирования заявки */}
       <Dialog 
@@ -748,6 +873,60 @@ const TicketDetailsPage = () => {
             }}
           >
             Удалить
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Диалог закрытия заявки с сообщением */}
+      <Dialog 
+        open={closeWithMessageDialogOpen} 
+        onClose={() => setCloseWithMessageDialogOpen(false)}
+        fullWidth
+        maxWidth="sm"
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          Закрытие заявки с сообщением
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            Пожалуйста, введите сообщение о результатах выполнения заявки.
+          </DialogContentText>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Сообщение о выполнении"
+            fullWidth
+            multiline
+            rows={4}
+            variant="outlined"
+            value={closeMessage}
+            onChange={(e) => setCloseMessage(e.target.value)}
+            sx={{ 
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+              }
+            }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button 
+            onClick={() => setCloseWithMessageDialogOpen(false)} 
+            variant="outlined"
+            sx={{ borderRadius: 2 }}
+          >
+            Отмена
+          </Button>
+          <Button 
+            onClick={handleCloseTicketWithMessage} 
+            color="success" 
+            variant="contained"
+            sx={{ 
+              borderRadius: 2,
+              boxShadow: '0 4px 10px rgba(102, 187, 106, 0.3)'
+            }}
+          >
+            Закрыть заявку
           </Button>
         </DialogActions>
       </Dialog>

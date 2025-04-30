@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Typography, Box, Table, TableBody, TableCell, 
@@ -7,7 +7,7 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   MenuItem, Select, FormControl, InputLabel,
   TablePagination, Alert, Tooltip, Snackbar,
-  Card, CardContent, Avatar, Divider, Paper
+  Card, CardContent, Avatar, Divider, Paper, Badge
 } from '@mui/material';
 import MuiAlert from '@mui/material/Alert';
 import SearchIcon from '@mui/icons-material/Search';
@@ -19,9 +19,11 @@ import DoneIcon from '@mui/icons-material/Done';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import MessageIcon from '@mui/icons-material/Message';
 import { useTickets } from '../hooks/useTickets';
 import { useUsers } from '../hooks/useUsers';
 import { useAuth } from '../context/AuthContext';
+import { ticketsAPI } from '../api/api';
 
 const statusColors = {
   'new': '#ffa726',
@@ -78,6 +80,8 @@ const TicketsPage = () => {
     severity: 'success'
   });
 
+  const [ticketMessages, setTicketMessages] = useState({});
+
   // Получаем тикеты с применением серверной фильтрации по статусу
   const apiFilters = {};
   if (filterStatus !== 'all') {
@@ -93,6 +97,33 @@ const TicketsPage = () => {
     selfAssignTicket,
     closeTicket
   } = useTickets(apiFilters);
+
+  // Загрузка информации о сообщениях для каждого тикета
+  useEffect(() => {
+    const loadTicketMessages = async () => {
+      if (!tickets || tickets.length === 0) return;
+      
+      const messagesInfo = {};
+      
+      // Создаем массив промисов для получения количества сообщений для каждого тикета
+      const promises = tickets.map(ticket => 
+        ticketsAPI.getMessages(ticket.id)
+          .then(response => {
+            messagesInfo[ticket.id] = response.data.length;
+          })
+          .catch(error => {
+            console.error(`Ошибка при получении сообщений для тикета ${ticket.id}:`, error);
+            messagesInfo[ticket.id] = 0;
+          })
+      );
+      
+      // Ждем выполнения всех запросов
+      await Promise.all(promises);
+      setTicketMessages(messagesInfo);
+    };
+    
+    loadTicketMessages();
+  }, [tickets]);
 
   const handleSearch = (e) => {
     setSearchQuery(e.target.value);
@@ -251,6 +282,11 @@ const TicketsPage = () => {
 
   const handleGoBack = () => {
     navigate('/');
+  };
+
+  // Функция для отображения сообщений тикета
+  const hasMessages = (ticketId) => {
+    return ticketMessages[ticketId] > 0;
   };
 
   if (isLoading) {
@@ -431,146 +467,152 @@ const TicketsPage = () => {
             boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
           }}
         >
-          <TableContainer component={Paper} sx={{ borderRadius: 4, boxShadow: 'none' }}>
+          <TableContainer component={Paper} sx={{ mt: 3, borderRadius: 2, overflow: 'hidden' }}>
             <Table>
-              <TableHead sx={{ bgcolor: 'rgba(25, 118, 210, 0.08)' }}>
+              <TableHead sx={{ backgroundColor: 'primary.main' }}>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>Заголовок</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Статус</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Приоритет</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Исполнитель</TableCell>
-                  {isAgentOrAdmin && <TableCell sx={{ fontWeight: 600 }}>Действия</TableCell>}
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Название</TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Статус</TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Приоритет</TableCell>
+                  {isAgentOrAdmin && (
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Создатель</TableCell>
+                  )}
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Исполнитель</TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Действия</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {paginatedTickets.length === 0 ? (
+                {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={isAgentOrAdmin ? 5 : 4} align="center">
-                      <Box sx={{ py: 4 }}>
-                        <Avatar 
-                          sx={{ 
-                            width: 60, 
-                            height: 60, 
-                            bgcolor: 'rgba(25, 118, 210, 0.08)', 
-                            color: 'primary.main',
-                            margin: '0 auto',
-                            mb: 2
-                          }}
-                        >
-                          <AssignmentIcon sx={{ fontSize: 30 }} />
-                        </Avatar>
-                        <Typography variant="h6" sx={{ mb: 1 }}>
-                          Нет заявок
-                        </Typography>
-                        <Typography variant="body2" color="textSecondary">
-                          {searchQuery || filterStatus !== 'all' || filterPriority !== 'all' 
-                            ? 'Попробуйте изменить параметры фильтрации' 
-                            : 'Создайте первую заявку!'}
-                        </Typography>
-                        {!(searchQuery || filterStatus !== 'all' || filterPriority !== 'all') && (
-                          <Button
-                            variant="contained"
-                            color="primary"
-                            startIcon={<AddIcon />}
-                            onClick={handleCreateTicket}
-                            sx={{ mt: 2, borderRadius: 2 }}
-                          >
-                            Создать заявку
-                          </Button>
-                        )}
-                      </Box>
+                    <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                      <CircularProgress />
+                    </TableCell>
+                  </TableRow>
+                ) : paginatedTickets.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                      {searchQuery || filterStatus !== 'all' || filterPriority !== 'all' 
+                        ? 'Заявки по заданным критериям не найдены'
+                        : 'Заявки отсутствуют'}
                     </TableCell>
                   </TableRow>
                 ) : (
                   paginatedTickets.map((ticket) => (
                     <TableRow 
-                      key={ticket.id} 
-                      hover 
-                      sx={{ cursor: 'pointer' }} 
+                      key={ticket.id}
                       onClick={() => handleRowClick(ticket.id)}
+                      sx={{ 
+                        cursor: 'pointer',
+                        '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' }
+                      }}
                     >
-                      <TableCell>{ticket.title}</TableCell>
                       <TableCell>
-                        <Chip 
-                          label={formatStatus(ticket.status)} 
-                          size="small" 
-                          sx={{ 
-                            bgcolor: `${statusColors[ticket.status]}15`, 
-                            color: statusColors[ticket.status],
-                            fontWeight: 500,
-                            borderRadius: 2
-                          }}
-                        />
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <Typography 
+                            variant="body2" 
+                            fontWeight={hasMessages(ticket.id) && ticket.status === 'closed' ? 'bold' : 'normal'}
+                          >
+                            {ticket.title}
+                          </Typography>
+                        </Box>
                       </TableCell>
                       <TableCell>
-                        <Chip 
-                          label={formatPriority(ticket.priority)} 
-                          size="small"
-                          sx={{ 
-                            bgcolor: `${priorityColors[ticket.priority]}15`, 
-                            color: priorityColors[ticket.priority],
-                            fontWeight: 500,
-                            borderRadius: 2
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {ticket.assigned_to_id ? (
-                          getAssigneeName(ticket.assigned_to_id)
+                        {ticket.status === 'closed' && hasMessages(ticket.id) ? (
+                          <Chip 
+                            deleteIcon={<MessageIcon style={{ fontSize: '16px', color: 'white' }} />}
+                            onDelete={() => {}} // Это нужно, чтобы deleteIcon отображался
+                            label={formatStatus(ticket.status)}
+                            size="small"
+                            sx={{ 
+                              bgcolor: statusColors[ticket.status],
+                              color: 'white',
+                              fontWeight: 500,
+                              '& .MuiChip-deleteIcon': {
+                                color: 'white',
+                                opacity: 1,
+                                '&:hover': {
+                                  color: 'white',
+                                  opacity: 0.8
+                                }
+                              }
+                            }}
+                          />
                         ) : (
                           <Chip 
-                            label="Не назначен" 
+                            label={formatStatus(ticket.status)}
                             size="small"
-                            variant="outlined"
-                            sx={{ borderRadius: 2 }}
+                            sx={{ 
+                              bgcolor: statusColors[ticket.status],
+                              color: 'white',
+                              fontWeight: 500
+                            }}
                           />
                         )}
                       </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={formatPriority(ticket.priority)}
+                          size="small"
+                          sx={{ 
+                            bgcolor: priorityColors[ticket.priority],
+                            color: 'white',
+                            fontWeight: 500
+                          }}
+                        />
+                      </TableCell>
                       {isAgentOrAdmin && (
-                        <TableCell>
-                          <Box sx={{ display: 'flex', gap: 1 }}>
-                            {ticket.status === 'new' && (
-                              <Tooltip title="Взять в работу">
-                                <IconButton 
-                                  size="small" 
-                                  color="primary" 
-                                  onClick={(e) => handleSelfAssign(ticket.id, e)}
-                                  sx={{ bgcolor: 'rgba(25, 118, 210, 0.08)' }}
-                                >
-                                  <AssignmentIndIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                            {ticket.status === 'in_progress' && (
-                              <Tooltip title="Отметить как выполненную">
-                                <IconButton 
-                                  size="small" 
-                                  color="success" 
-                                  onClick={(e) => handleCloseTicket(ticket.id, e)}
-                                  sx={{ bgcolor: 'rgba(102, 187, 106, 0.08)' }}
-                                >
-                                  <DoneIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                            {isAdmin && (
-                              <Tooltip title="Удалить">
-                                <IconButton 
-                                  size="small" 
-                                  color="error" 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openDeleteDialog(ticket);
-                                  }}
-                                  sx={{ bgcolor: 'rgba(244, 67, 54, 0.08)' }}
-                                >
-                                  <DeleteIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                          </Box>
-                        </TableCell>
+                        <TableCell>{getUserById(ticket.creator_id)?.full_name || 'Неизвестен'}</TableCell>
                       )}
+                      <TableCell>
+                        {ticket.assigned_to_id 
+                          ? getUserById(ticket.assigned_to_id)?.full_name || 'Неизвестен'
+                          : 'Не назначен'}
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          {ticket.status === 'new' && isAgentOrAdmin && (
+                            <Tooltip title="Взять в работу">
+                              <IconButton 
+                                size="small" 
+                                color="primary"
+                                onClick={(e) => handleSelfAssign(ticket.id, e)}
+                                sx={{ backgroundColor: 'rgba(33, 150, 243, 0.1)' }}
+                              >
+                                <AssignmentIndIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          {ticket.status === 'in_progress' && 
+                           isAgentOrAdmin && 
+                           (isAdmin || user?.id === ticket.assigned_to_id) && (
+                            <Tooltip title="Отметить как выполненную">
+                              <IconButton 
+                                size="small" 
+                                color="success"
+                                onClick={(e) => handleCloseTicket(ticket.id, e)}
+                                sx={{ backgroundColor: 'rgba(76, 175, 80, 0.1)' }}
+                              >
+                                <DoneIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          {isAdmin && (
+                            <Tooltip title="Удалить">
+                              <IconButton 
+                                size="small" 
+                                color="error"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openDeleteDialog(ticket);
+                                }}
+                                sx={{ backgroundColor: 'rgba(244, 67, 54, 0.1)' }}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </Box>
+                      </TableCell>
                     </TableRow>
                   ))
                 )}

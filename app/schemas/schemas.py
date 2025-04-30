@@ -275,4 +275,27 @@ class TicketCategory(TicketCategoryBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
 
-    model_config = ConfigDict(from_attributes=True) 
+    model_config = ConfigDict(from_attributes=True)
+
+
+# Схемы для сообщений к заявкам
+class TicketMessageBase(BaseModel):
+    message: str
+
+
+class TicketMessageCreate(TicketMessageBase):
+    pass
+
+
+class TicketMessage(TicketMessageBase):
+    id: int
+    ticket_id: int
+    user_id: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# Схема для закрытия заявки с сообщением
+class TicketCloseWithMessage(BaseModel):
+    message: str 

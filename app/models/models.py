@@ -138,12 +138,35 @@ class Ticket(Base):
     # Связь с вложениями
     attachments = relationship("Attachment", back_populates="ticket", cascade="all, delete-orphan")
     
+    # Связь с сообщениями к заявке
+    messages = relationship("TicketMessage", back_populates="ticket", cascade="all, delete-orphan")
+    
     # Связь с оборудованием - временно отключена, так как столбца нет в базе данных
     # equipment_id = Column(Integer, ForeignKey("equipment.id"), nullable=True)
     # equipment = relationship("Equipment", back_populates="tickets")
 
     def __repr__(self):
         return f"<Ticket(id={self.id}, title='{self.title}', status='{self.status}', priority='{self.priority}')>"
+
+
+# Модель сообщения к заявке
+class TicketMessage(Base):
+    __tablename__ = "ticket_messages"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    message = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Внешний ключ на заявку
+    ticket_id = Column(Integer, ForeignKey("tickets.id"), nullable=False)
+    ticket = relationship("Ticket", back_populates="messages")
+    
+    # Внешний ключ на пользователя, оставившего сообщение
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user = relationship("User")
+    
+    def __repr__(self):
+        return f"<TicketMessage(id={self.id}, ticket_id={self.ticket_id})>"
 
 
 # Модель уведомления

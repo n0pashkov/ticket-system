@@ -1,13 +1,15 @@
 from typing import List
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, status as http_status
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.security import get_current_active_user
 from app.core.dependencies import get_current_agent_or_admin
 from app.db.database import get_db
-from app.models.models import Ticket, User, UserRole, TicketStatus
+from app.models.models import Ticket, User, UserRole, TicketStatus, TicketMessage
 from app.schemas.schemas import Ticket as TicketSchema
-from app.schemas.schemas import TicketCreate, TicketUpdate
+from app.schemas.schemas import TicketCreate, TicketUpdate, TicketCloseWithMessage, TicketMessage as TicketMessageSchema
 
 router = APIRouter()
 
@@ -314,4 +316,96 @@ def delete_ticket(
         )
     
     db.commit()
-    return None 
+    return None
+
+
+# Закрытие заявки с сообщением (для агентов)
+@router.post("/{ticket_id}/close-with-message", response_model=TicketSchema)
+def close_ticket_with_message(
+    ticket_id: int,
+    data: TicketCloseWithMessage,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    # Получаем заявку из БД
+    db_ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if not db_ticket:
+        raise HTTPException(status_code=404, detail="Заявка не найдена")
+    
+    # Проверка прав на закрытие заявки
+    if current_user.role not in [UserRole.AGENT, UserRole.ADMIN]:
+        # Только агенты и администраторы могут закрывать заявки с сообщением
+        raise HTTPException(
+            status_code=http_status.HTTP_403_FORBIDDEN,
+            detail="Только агенты и администраторы могут закрывать заявки с сообщением"
+        )
+    
+    # Создаем сообщение
+    new_message = TicketMessage(
+        message=data.message,
+        ticket_id=ticket_id,
+        user_id=current_user.id
+    )
+    db.add(new_message)
+    
+    # Закрываем заявку
+    db_ticket.status = TicketStatus.CLOSED
+    
+    db.commit()
+    db.refresh(db_ticket)
+    return db_ticket
+
+
+# Получение сообщений к заявке
+@router.get("/{ticket_id}/messages", response_model=List[TicketMessageSchema])
+def get_ticket_messages(
+    ticket_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    # Получаем заявку из БД
+    db_ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if not db_ticket:
+        raise HTTPException(status_code=404, detail="Заявка не найдена")
+    
+    # Проверка прав на просмотр заявки
+    if current_user.role == UserRole.USER:
+        if db_ticket.creator_id != current_user.id:
+            raise HTTPException(
+                status_code=http_status.HTTP_403_FORBIDDEN,
+                detail="Нет прав для просмотра данной заявки"
+            )
+        # Проверяем, не скрыта ли заявка для пользователя
+        if db_ticket.is_hidden_for_creator:
+            raise HTTPException(status_code=404, detail="Заявка не найдена")
+    
+    # Получаем сообщения
+    messages = db.query(TicketMessage).filter(TicketMessage.ticket_id == ticket_id).order_by(TicketMessage.created_at).all()
+    return messages
+
+# Получение количества сообщений к заявке
+@router.get("/{ticket_id}/messages/count", response_model=dict)
+def get_ticket_messages_count(
+    ticket_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    # Получаем заявку из БД
+    db_ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if not db_ticket:
+        raise HTTPException(status_code=404, detail="Заявка не найдена")
+    
+    # Проверка прав на просмотр заявки
+    if current_user.role == UserRole.USER:
+        if db_ticket.creator_id != current_user.id:
+            raise HTTPException(
+                status_code=http_status.HTTP_403_FORBIDDEN,
+                detail="Нет прав для просмотра данной заявки"
+            )
+        # Проверяем, не скрыта ли заявка для пользователя
+        if db_ticket.is_hidden_for_creator:
+            raise HTTPException(status_code=404, detail="Заявка не найдена")
+    
+    # Получаем количество сообщений
+    count = db.query(TicketMessage).filter(TicketMessage.ticket_id == ticket_id).count()
+    return {"count": count} 

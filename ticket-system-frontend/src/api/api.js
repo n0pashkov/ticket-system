@@ -182,6 +182,12 @@ export const ticketsAPI = {
   selfAssign: (ticketId) => api.post(`/tickets/${ticketId}/assign`, {}),
   updateStatus: (ticketId, status) => api.put(`/tickets/${ticketId}/status/${status}`, {}),
   closeTicket: (ticketId) => api.post(`/tickets/${ticketId}/close`, {}),
+  // Новый метод для закрытия заявки с сообщением
+  closeTicketWithMessage: (ticketId, message) => api.post(`/tickets/${ticketId}/close-with-message`, { message }),
+  // Получение сообщений заявки
+  getMessages: (ticketId) => api.get(`/tickets/${ticketId}/messages`),
+  // Получение количества сообщений для заявки
+  getMessageCount: (ticketId) => api.get(`/tickets/${ticketId}/messages/count`),
 };
 
 // API для категорий заявок
