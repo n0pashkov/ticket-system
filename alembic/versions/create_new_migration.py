@@ -1,13 +1,13 @@
-"""add is_hidden_for_creator column to tickets table
+"""remove_comments_table
 
 Revision ID: ad123fde4567
-Revises: РїСЂРµРґС‹РґСѓС‰РёР№_id_СЂРµРІРёР·РёРё
+Revises: None  # Р—Р°РјРµРЅРёС‚Рµ РЅР° ID РїСЂРµРґС‹РґСѓС‰РµР№ РјРёРіСЂР°С†РёРё, РµСЃР»Рё РѕРЅР° СЃСѓС‰РµСЃС‚РІСѓРµС‚
 Create Date: 2023-10-15 12:00:00.000000
 
 """
 from alembic import op
 import sqlalchemy as sa
-
+import op
 
 # revision identifiers, used by Alembic.
 revision = 'ad123fde4567'
@@ -17,8 +17,20 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column('tickets', sa.Column('is_hidden_for_creator', sa.Boolean(), nullable=True, server_default='false'))
+    # Удаляем таблицу comments
+    op.drop_table('comments')
 
 
 def downgrade():
-    op.drop_column('tickets', 'is_hidden_for_creator') 
+    # Создаем таблицу comments при отмене миграции
+    op.create_table('comments',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('text', sa.Text(), nullable=True),
+        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+        sa.Column('author_id', sa.Integer(), nullable=True),
+        sa.Column('ticket_id', sa.Integer(), nullable=True),
+        sa.ForeignKeyConstraint(['author_id'], ['users.id'], ),
+        sa.ForeignKeyConstraint(['ticket_id'], ['tickets.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_comments_id'), 'comments', ['id'], unique=False)

@@ -133,33 +133,10 @@ export const useTicket = (ticketId) => {
     }
   });
 
-  const commentQuery = useQuery({
-    queryKey: ['tickets', ticketId, 'comments'],
-    queryFn: () => ticketsAPI.getComments(ticketId),
-    select: (data) => data.data || [],
-    enabled: !!ticketId,
-    onError: (error) => {
-      console.error(`Error fetching comments for ticket ${ticketId}:`, error);
-      return [];
-    }
-  });
-
-  const addCommentMutation = useMutation({
-    mutationFn: (commentData) => ticketsAPI.addComment(ticketId, commentData),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tickets', ticketId, 'comments'] });
-    },
-    onError: (error) => {
-      console.error(`Error adding comment to ticket ${ticketId}:`, error);
-    }
-  });
-
   return {
     ticket: ticketQuery.data,
-    comments: commentQuery.data || [],
-    isLoading: ticketQuery.isLoading || commentQuery.isLoading,
-    isError: ticketQuery.isError || commentQuery.isError,
-    error: ticketQuery.error || commentQuery.error,
-    addComment: addCommentMutation.mutate,
+    isLoading: ticketQuery.isLoading,
+    isError: ticketQuery.isError,
+    error: ticketQuery.error,
   };
 }; 

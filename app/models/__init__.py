@@ -1,1 +1,1 @@
-from app.models.models import User, Ticket, Comment, UserRole, TicketStatus 
+from app.models.models import User, Ticket, UserRole, TicketStatus 

@@ -5,7 +5,7 @@ from sqlalchemy import func, desc, and_
 from datetime import datetime, timedelta
 
 from app.db.database import get_db
-from app.models.models import Ticket, User, Comment, UserRole, TicketStatus
+from app.models.models import Ticket, User, UserRole, TicketStatus
 from app.core.security import get_current_active_user
 from app.core.dependencies import get_current_admin
 
@@ -167,18 +167,6 @@ def get_user_activity(
      .limit(top)\
      .all()
     
-    # Пользователи с наибольшим количеством комментариев
-    users_with_most_comments = db.query(
-        User.id,
-        User.username,
-        User.full_name,
-        func.count(Comment.id).label("comment_count")
-    ).join(Comment, User.id == Comment.author_id)\
-     .group_by(User.id)\
-     .order_by(desc("comment_count"))\
-     .limit(top)\
-     .all()
-    
     return {
         "most_active_by_tickets": [
             {
@@ -187,13 +175,5 @@ def get_user_activity(
                 "full_name": full_name,
                 "ticket_count": ticket_count
             } for user_id, username, full_name, ticket_count in users_with_most_tickets
-        ],
-        "most_active_by_comments": [
-            {
-                "user_id": user_id,
-                "username": username,
-                "full_name": full_name,
-                "comment_count": comment_count
-            } for user_id, username, full_name, comment_count in users_with_most_comments
         ]
     } 

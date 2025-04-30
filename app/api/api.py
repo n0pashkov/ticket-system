@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.endpoints import auth, users, tickets, comments, statistics, notifications, attachments, equipment, categories
+from app.api.endpoints import auth, users, tickets, statistics, notifications, attachments, equipment, categories
 
 # Создаем основной API роутер
 api_router = APIRouter()
@@ -16,10 +16,6 @@ api_router.include_router(users.router, prefix="/users", tags=["users"])
 # Подключаем эндпоинты для заявок
 print(">>> DEBUG: Registering tickets router")
 api_router.include_router(tickets.router, prefix="/tickets", tags=["tickets"])
-
-# Подключаем эндпоинты для комментариев
-print(">>> DEBUG: Registering comments router")
-api_router.include_router(comments.router, prefix="/comments", tags=["comments"])
 
 # Подключаем эндпоинты для статистики и отчетности
 print(">>> DEBUG: Registering statistics router")

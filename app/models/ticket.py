@@ -26,5 +26,4 @@ class Ticket(Base):
     
     # Отношения
     creator = relationship("User", foreign_keys=[creator_id], back_populates="tickets")
-    assigned_to = relationship("User", foreign_keys=[assigned_to_id], back_populates="assigned_tickets")
-    comments = relationship("Comment", back_populates="ticket", cascade="all, delete-orphan") 
+    assigned_to = relationship("User", foreign_keys=[assigned_to_id], back_populates="assigned_tickets") 

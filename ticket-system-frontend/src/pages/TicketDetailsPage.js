@@ -30,10 +30,6 @@ import {
   Select,
   MenuItem,
   IconButton,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemAvatar,
   CircularProgress,
   Paper
 } from '@mui/material';
@@ -47,7 +43,6 @@ import {
   Description as DescriptionIcon,
   ArrowBack as ArrowBackIcon,
   Send as SendIcon,
-  Comment as CommentIcon,
   Delete as DeleteIcon,
   Close as CloseIcon,
   CheckCircle as CheckCircleIcon,
@@ -97,7 +92,6 @@ const TicketDetailsPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [newComment, setNewComment] = useState('');
   const [actionError, setActionError] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -117,11 +111,9 @@ const TicketDetailsPage = () => {
 
   const { 
     ticket, 
-    comments, 
     isLoading, 
     isError, 
-    error, 
-    addComment 
+    error
   } = useTicket(id);
 
   // Получение тикета из кэша
@@ -228,19 +220,6 @@ const TicketDetailsPage = () => {
       console.error('Ошибка при удалении тикета:', err);
       setActionError('Не удалось удалить тикет.');
       setDeleteDialogOpen(false);
-    }
-  };
-
-  const handleSubmitComment = async (e) => {
-    e.preventDefault();
-    if (!newComment.trim()) return;
-
-    try {
-      await addComment({ content: newComment });
-      setNewComment('');
-    } catch (err) {
-      console.error('Ошибка при добавлении комментария:', err);
-      setActionError('Не удалось добавить комментарий.');
     }
   };
 
@@ -646,122 +625,6 @@ const TicketDetailsPage = () => {
           )}
         </Box>
       )}
-
-      {/* Комментарии */}
-      <Card 
-        sx={{ 
-          mt: 3,
-          borderRadius: 4, 
-          overflow: 'hidden',
-          boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
-        }}
-      >
-        <CardContent sx={{ p: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-            <CommentIcon sx={{ mr: 1, color: 'action.active' }} />
-            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-              Комментарии
-            </Typography>
-          </Box>
-          <Divider sx={{ mb: 2 }} />
-          
-          {comments && comments.length > 0 ? (
-            <List sx={{ mb: 2, p: 0 }}>
-              {comments.map(comment => (
-                <ListItem 
-                  key={comment.id} 
-                  alignItems="flex-start"
-                  sx={{ 
-                    px: 0, 
-                    py: 1.5,
-                    borderBottom: '1px solid rgba(0,0,0,0.08)'
-                  }}
-                >
-                  <ListItemAvatar>
-                    <Avatar 
-                      sx={{ 
-                        width: 40, 
-                        height: 40, 
-                        bgcolor: 'primary.light',
-                        fontSize: '0.875rem'
-                      }}
-                    >
-                      {comment.author?.full_name?.substring(0, 2) || "?"}
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                          {comment.author?.full_name || "Пользователь"}
-                        </Typography>
-                        <Typography variant="caption" color="textSecondary">
-                          {formatDate(comment.created_at)}
-                        </Typography>
-                      </Box>
-                    }
-                    secondary={
-                      <Typography 
-                        variant="body2" 
-                        sx={{ 
-                          mt: 0.5, 
-                          whiteSpace: 'pre-wrap' 
-                        }}
-                      >
-                        {comment.content}
-                      </Typography>
-                    }
-                  />
-                </ListItem>
-              ))}
-            </List>
-          ) : (
-            <Box sx={{ textAlign: 'center', my: 3, p: 2 }}>
-              <CommentIcon sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
-              <Typography color="textSecondary">
-                Комментариев пока нет
-              </Typography>
-            </Box>
-          )}
-          
-          {/* Форма добавления комментария */}
-          <Box 
-            component="form" 
-            onSubmit={handleSubmitComment}
-            sx={{ display: 'flex', flexDirection: 'column' }}
-          >
-            <TextField
-              placeholder="Добавьте комментарий..."
-              multiline
-              rows={3}
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              variant="outlined"
-              fullWidth
-              sx={{ 
-                mb: 2,
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 2,
-                }
-              }}
-            />
-            <Button 
-              type="submit" 
-              variant="contained" 
-              color="primary" 
-              endIcon={<SendIcon />}
-              disabled={!newComment.trim()}
-              sx={{ 
-                alignSelf: 'flex-end',
-                borderRadius: 2,
-                boxShadow: '0 4px 10px rgba(33, 150, 243, 0.3)'
-              }}
-            >
-              Отправить
-            </Button>
-          </Box>
-        </CardContent>
-      </Card>
 
       {/* Диалог редактирования заявки */}
       <Dialog 

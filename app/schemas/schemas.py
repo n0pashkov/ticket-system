@@ -6,26 +6,6 @@ from enum import Enum
 from app.models.models import UserRole, TicketStatus
 
 
-# Базовая схема для комментария
-class CommentBase(BaseModel):
-    text: str
-
-
-# Схема для создания комментария
-class CommentCreate(CommentBase):
-    pass
-
-
-# Схема для отображения комментария
-class Comment(CommentBase):
-    id: int
-    author_id: int
-    ticket_id: int
-    created_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
-
-
 # Базовая схема для заявки
 class TicketBase(BaseModel):
     title: str
@@ -61,7 +41,6 @@ class Ticket(TicketBase):
     creator_id: int
     assigned_to_id: Optional[int] = None
     resolution: Optional[str] = None
-    comments: List[int] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -248,7 +227,6 @@ class TicketStatistics(BaseModel):
     total_tickets: int
     status_distribution: Dict[str, int]
     priority_distribution: Dict[str, int]
-    avg_resolution_time_hours: Optional[float] = None
 
 
 class AgentPerformance(BaseModel):
@@ -274,10 +252,8 @@ class UserActivity(BaseModel):
     username: str
     full_name: Optional[str] = None
     ticket_count: Optional[int] = None
-    comment_count: Optional[int] = None
 
 
-# Схемы для категорий заявок
 class TicketCategoryBase(BaseModel):
     name: str
     description: Optional[str] = None

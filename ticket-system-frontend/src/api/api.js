@@ -182,10 +182,6 @@ export const ticketsAPI = {
   selfAssign: (ticketId) => api.post(`/tickets/${ticketId}/assign`, {}),
   updateStatus: (ticketId, status) => api.put(`/tickets/${ticketId}/status/${status}`, {}),
   closeTicket: (ticketId) => api.post(`/tickets/${ticketId}/close`, {}),
-  
-  // Комментарии к тикетам
-  getComments: (ticketId) => api.get(`/tickets/${ticketId}/comments/`),
-  addComment: (ticketId, commentData) => api.post(`/tickets/${ticketId}/comments/`, commentData),
 };
 
 // API для категорий заявок

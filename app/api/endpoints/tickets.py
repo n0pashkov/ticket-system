@@ -5,9 +5,9 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.security import get_current_active_user
 from app.core.dependencies import get_current_agent_or_admin
 from app.db.database import get_db
-from app.models.models import Ticket, User, Comment, UserRole, TicketStatus
+from app.models.models import Ticket, User, UserRole, TicketStatus
 from app.schemas.schemas import Ticket as TicketSchema
-from app.schemas.schemas import TicketCreate, TicketUpdate, CommentCreate, Comment as CommentSchema
+from app.schemas.schemas import TicketCreate, TicketUpdate
 
 router = APIRouter()
 
@@ -77,9 +77,6 @@ def read_tickets(
                 else:
                     priority = db_ticket.priority
                 
-                # Получаем ID комментариев вместо объектов
-                comment_ids = [comment.id for comment in db_ticket.comments] if db_ticket.comments else []
-                
                 # Создаем словарь с данными тикета с правильными типами
                 ticket_dict = {
                     "id": db_ticket.id,
@@ -93,8 +90,7 @@ def read_tickets(
                     "creator_id": db_ticket.creator_id,
                     "assigned_to_id": db_ticket.assigned_to_id,
                     "resolution": db_ticket.resolution,
-                    "room_number": db_ticket.room_number,
-                    "comments": comment_ids
+                    "room_number": db_ticket.room_number
                 }
                 tickets.append(ticket_dict)
                 
@@ -232,70 +228,6 @@ def update_ticket_status(
     return db_ticket
 
 
-# Добавление комментария к заявке
-@router.post("/{ticket_id}/comments/", response_model=CommentSchema)
-def create_comment(
-    ticket_id: int,
-    comment: CommentCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
-):
-    # Получаем заявку из БД
-    db_ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
-    if not db_ticket:
-        raise HTTPException(status_code=404, detail="Заявка не найдена")
-    
-    # Проверка прав на комментирование заявки
-    if current_user.role == UserRole.USER and db_ticket.creator_id != current_user.id:
-        raise HTTPException(
-            status_code=http_status.HTTP_403_FORBIDDEN,
-            detail="Нет прав для комментирования данной заявки"
-        )
-    
-    # Агенты и администраторы могут комментировать любые заявки
-    
-    # Создаем комментарий
-    db_comment = Comment(
-        text=comment.text,
-        author_id=current_user.id,
-        ticket_id=ticket_id
-    )
-    
-    db.add(db_comment)
-    db.commit()
-    db.refresh(db_comment)
-    return db_comment
-
-
-# Получение комментариев к заявке
-@router.get("/{ticket_id}/comments/", response_model=List[CommentSchema])
-def read_comments(
-    ticket_id: int,
-    skip: int = 0,
-    limit: int = 100,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
-):
-    # Получаем заявку из БД
-    db_ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
-    if not db_ticket:
-        raise HTTPException(status_code=404, detail="Заявка не найдена")
-    
-    # Проверка прав на просмотр комментариев
-    if current_user.role == UserRole.USER and db_ticket.creator_id != current_user.id:
-        raise HTTPException(
-            status_code=http_status.HTTP_403_FORBIDDEN,
-            detail="Нет прав для просмотра комментариев данной заявки"
-        )
-    
-    # Агенты и администраторы могут просматривать комментарии всех заявок
-    
-    # Получаем комментарии
-    comments = db.query(Comment).filter(Comment.ticket_id == ticket_id).offset(skip).limit(limit).all()
-    return comments
-
-
-# Назначение заявки на текущего агента
 @router.post("/{ticket_id}/assign", response_model=TicketSchema)
 def assign_ticket_to_current_agent(
     ticket_id: int,
@@ -306,7 +238,7 @@ def assign_ticket_to_current_agent(
     if current_user.role != UserRole.AGENT and current_user.role != UserRole.ADMIN:
         raise HTTPException(
             status_code=http_status.HTTP_403_FORBIDDEN,
-            detail="Только технические специалисты и администраторы могут назначать заявки"
+            detail="Только агенты и администраторы могут назначать заявки"
         )
     
     # Получаем заявку из БД
@@ -314,45 +246,18 @@ def assign_ticket_to_current_agent(
     if not db_ticket:
         raise HTTPException(status_code=404, detail="Заявка не найдена")
     
-    # Назначаем заявку на текущего пользователя
+    # Назначаем заявку текущему агенту
     db_ticket.assigned_to_id = current_user.id
+    
+    # Если заявка была в статусе NEW, меняем статус на IN_PROGRESS
     if db_ticket.status == TicketStatus.NEW:
         db_ticket.status = TicketStatus.IN_PROGRESS
     
     db.commit()
     db.refresh(db_ticket)
-    
-    # Преобразуем числовой приоритет в строку, если нужно
-    if isinstance(db_ticket.priority, int):
-        priority_map = {1: "low", 2: "medium", 3: "high", 4: "critical"}
-        priority = priority_map.get(db_ticket.priority, "medium")
-    else:
-        priority = db_ticket.priority
-    
-    # Получаем ID комментариев вместо объектов
-    comment_ids = [comment.id for comment in db_ticket.comments] if db_ticket.comments else []
-    
-    # Создаем словарь с данными тикета с правильными типами
-    ticket_dict = {
-        "id": db_ticket.id,
-        "title": db_ticket.title,
-        "description": db_ticket.description,
-        "status": db_ticket.status,
-        "priority": priority,
-        "category": getattr(db_ticket, "category", None),
-        "created_at": db_ticket.created_at,
-        "updated_at": db_ticket.updated_at,
-        "creator_id": db_ticket.creator_id,
-        "assigned_to_id": db_ticket.assigned_to_id,
-        "resolution": db_ticket.resolution,
-        "room_number": db_ticket.room_number,
-        "comments": comment_ids
-    }
-    
-    return ticket_dict
+    return db_ticket
 
 
-# Закрытие заявки
 @router.post("/{ticket_id}/close", response_model=TicketSchema)
 def close_ticket(
     ticket_id: int,
@@ -365,23 +270,23 @@ def close_ticket(
         raise HTTPException(status_code=404, detail="Заявка не найдена")
     
     # Проверка прав на закрытие заявки
-    if current_user.role == UserRole.USER and db_ticket.creator_id != current_user.id:
-        raise HTTPException(
-            status_code=http_status.HTTP_403_FORBIDDEN,
-            detail="Нет прав для закрытия данной заявки"
-        )
-    
     # Агенты и администраторы могут закрывать любые заявки
+    if current_user.role == UserRole.USER:
+        # Обычный пользователь может закрывать только свои заявки
+        if db_ticket.creator_id != current_user.id:
+            raise HTTPException(
+                status_code=http_status.HTTP_403_FORBIDDEN,
+                detail="Нет прав для закрытия данной заявки"
+            )
     
-    # Меняем статус
-    db_ticket.status = "closed"
+    # Закрываем заявку
+    db_ticket.status = TicketStatus.CLOSED
     
     db.commit()
     db.refresh(db_ticket)
     return db_ticket
 
 
-# Удаление заявки (доступно администраторам и создателям заявок)
 @router.delete("/{ticket_id}", status_code=http_status.HTTP_204_NO_CONTENT)
 def delete_ticket(
     ticket_id: int,
@@ -393,22 +298,20 @@ def delete_ticket(
     if not db_ticket:
         raise HTTPException(status_code=404, detail="Заявка не найдена")
     
-    # Проверяем права на удаление/скрытие:
-    # - Администраторы могут удалять любые заявки
-    # - Создатели могут скрывать только свои заявки
-    if current_user.role != UserRole.ADMIN and db_ticket.creator_id != current_user.id:
+    # Проверка прав на удаление заявки
+    if current_user.role == UserRole.ADMIN:
+        # Админ может удалить любую заявку полностью
+        db.delete(db_ticket)
+    elif current_user.role == UserRole.USER and db_ticket.creator_id == current_user.id:
+        # Пользователь может только скрыть свою заявку (мягкое удаление)
+        db_ticket.is_hidden_for_creator = True
+        db.commit()
+    else:
+        # Агенты и другие пользователи не могут удалять заявки
         raise HTTPException(
             status_code=http_status.HTTP_403_FORBIDDEN,
-            detail="Только администраторы и создатели заявок могут удалять заявки"
+            detail="Нет прав для удаления данной заявки"
         )
     
-    # Для администраторов - реальное удаление
-    if current_user.role == UserRole.ADMIN:
-        db.delete(db_ticket)
-    # Для обычных пользователей - "мягкое удаление" - установка флага is_hidden_for_creator
-    elif db_ticket.creator_id == current_user.id:
-        db_ticket.is_hidden_for_creator = True
-    
     db.commit()
-    
     return None 

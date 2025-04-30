@@ -26,7 +26,6 @@ class NotificationType(str, enum.Enum):
     TICKET_UPDATED = "ticket_updated"
     TICKET_ASSIGNED = "ticket_assigned"
     TICKET_COMPLETED = "ticket_completed"
-    COMMENT_ADDED = "comment_added"
     SYSTEM = "system"
 
 
@@ -66,9 +65,6 @@ class User(Base):
     assigned_tickets = relationship("Ticket", 
                                  foreign_keys="Ticket.assigned_to_id", 
                                  back_populates="assigned_to")
-    
-    # Связь с комментариями
-    comments = relationship("Comment", back_populates="author")
     
     # Связь с уведомлениями
     notifications = relationship("Notification", back_populates="user")
@@ -139,9 +135,6 @@ class Ticket(Base):
     category_id = Column(Integer, ForeignKey("ticket_categories.id"), nullable=True)
     category = relationship("TicketCategory", back_populates="tickets")
     
-    # Связь с комментариями
-    comments = relationship("Comment", back_populates="ticket", cascade="all, delete-orphan")
-    
     # Связь с вложениями
     attachments = relationship("Attachment", back_populates="ticket", cascade="all, delete-orphan")
     
@@ -151,23 +144,6 @@ class Ticket(Base):
 
     def __repr__(self):
         return f"<Ticket(id={self.id}, title='{self.title}', status='{self.status}', priority='{self.priority}')>"
-
-
-# Модель комментария
-class Comment(Base):
-    __tablename__ = "comments"
-
-    id = Column(Integer, primary_key=True, index=True)
-    text = Column(Text)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    
-    # Внешний ключ на автора
-    author_id = Column(Integer, ForeignKey("users.id"))
-    author = relationship("User", back_populates="comments")
-    
-    # Внешний ключ на заявку
-    ticket_id = Column(Integer, ForeignKey("tickets.id"))
-    ticket = relationship("Ticket", back_populates="comments")
 
 
 # Модель уведомления

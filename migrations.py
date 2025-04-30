@@ -2,6 +2,13 @@ import os
 import sys
 import argparse
 import subprocess
+from alembic import command
+from alembic.config import Config
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
+
+# Путь к конфигурационному файлу alembic
+alembic_cfg = Config(os.path.join(os.path.dirname(__file__), 'alembic.ini'))
 
 def run_command(cmd):
     """Выполняет команду и выводит результат."""
@@ -19,9 +26,17 @@ def run_command(cmd):
             print(e.stderr)
         return False
 
+def run_migrations():
+    """Запускает миграции базы данных с помощью alembic."""
+    print("Запуск миграций базы данных...")
+    command.upgrade(alembic_cfg, "head")
+    print("Миграции успешно выполнены!")
+
 def create_migration(message):
-    """Создает новую миграцию с указанным сообщением."""
-    return run_command(f"alembic revision --autogenerate -m \"{message}\"")
+    """Создает новую миграцию с заданным сообщением."""
+    print(f"Создание новой миграции: {message}")
+    command.revision(alembic_cfg, autogenerate=True, message=message)
+    print("Миграция успешно создана!")
 
 def apply_migrations():
     """Применяет все миграции."""
@@ -45,6 +60,96 @@ def check_alembic_dir():
         print("Директория 'alembic' не найдена. Инициализация...")
         return run_command("alembic init alembic")
     return True
+
+def drop_comments_table():
+    """Удаляет таблицу комментариев из базы данных."""
+    print("Создание миграции для удаления таблицы комментариев...")
+    
+    # Создаем миграцию
+    command.revision(alembic_cfg, message="remove_comments_table")
+    
+    # Получаем путь к последнему файлу миграции
+    versions_dir = os.path.join(os.path.dirname(__file__), 'alembic', 'versions')
+    migration_files = [f for f in os.listdir(versions_dir) if f.endswith('.py')]
+    migration_files.sort()
+    latest_migration = migration_files[-1]
+    migration_path = os.path.join(versions_dir, latest_migration)
+    
+    # Содержимое миграции
+    migration_content = """
+\"\"\"remove_comments_table
+
+Revision ID: {revision}
+Revises: {down_revision}
+Create Date: {create_date}
+
+\"\"\"
+from alembic import op
+import sqlalchemy as sa
+{imports}
+
+# revision identifiers, used by Alembic.
+revision = '{revision}'
+down_revision = '{down_revision}'
+branch_labels = {branch_labels}
+depends_on = {depends_on}
+
+
+def upgrade():
+    # Удаляем таблицу comments
+    op.drop_table('comments')
+
+
+def downgrade():
+    # Создаем таблицу comments при отмене миграции
+    op.create_table('comments',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('text', sa.Text(), nullable=True),
+        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+        sa.Column('author_id', sa.Integer(), nullable=True),
+        sa.Column('ticket_id', sa.Integer(), nullable=True),
+        sa.ForeignKeyConstraint(['author_id'], ['users.id'], ),
+        sa.ForeignKeyConstraint(['ticket_id'], ['tickets.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_comments_id'), 'comments', ['id'], unique=False)
+"""
+    
+    # Читаем текущее содержимое файла миграции для получения метаданных
+    with open(migration_path, 'r') as f:
+        current_content = f.read()
+    
+    # Извлекаем метаданные
+    import re
+    revision = re.search(r"revision = '([^']+)'", current_content).group(1)
+    down_revision = re.search(r"down_revision = '([^']+)'", current_content).group(1) if "down_revision = " in current_content else "None"
+    create_date = re.search(r"Create Date: ([^\n]+)", current_content).group(1)
+    imports = ""
+    if "import sqlalchemy as sa" not in current_content:
+        imports = "import sqlalchemy as sa"
+    branch_labels = re.search(r"branch_labels = ([^\n]+)", current_content).group(1) if "branch_labels = " in current_content else "None"
+    depends_on = re.search(r"depends_on = ([^\n]+)", current_content).group(1) if "depends_on = " in current_content else "None"
+    
+    # Заполняем шаблон
+    migration_content = migration_content.format(
+        revision=revision,
+        down_revision=down_revision,
+        create_date=create_date,
+        imports=imports,
+        branch_labels=branch_labels,
+        depends_on=depends_on
+    )
+    
+    # Записываем обновленное содержимое миграции
+    with open(migration_path, 'w') as f:
+        f.write(migration_content)
+    
+    print(f"Миграция создана: {migration_path}")
+    
+    # Запускаем миграцию
+    print("Применение миграции...")
+    command.upgrade(alembic_cfg, "head")
+    print("Миграция успешно применена!")
 
 def main():
     """Основная функция для обработки аргументов командной строки."""
@@ -70,6 +175,9 @@ def main():
     
     # Команда для просмотра текущей версии
     subparsers.add_parser("current", help="Показать текущую версию миграции")
+    
+    # Команда для удаления таблицы комментариев
+    subparsers.add_parser("drop_comments", help="Удалить таблицу комментариев")
     
     # Парсим аргументы
     args = parser.parse_args()
@@ -98,6 +206,8 @@ def main():
         show_migrations_history()
     elif args.command == "current":
         show_current_migration()
+    elif args.command == "drop_comments":
+        drop_comments_table()
     else:
         parser.print_help()
     
