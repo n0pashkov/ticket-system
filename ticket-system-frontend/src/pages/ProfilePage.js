@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Typography, 
   Box, 
@@ -20,15 +20,10 @@ import {
   ListItemIcon,
   Chip,
   Switch,
-  FormControlLabel,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  Badge,
   Alert,
   IconButton
 } from '@mui/material';
-import { Email as EmailIcon, Person as PersonIcon, VpnKey as KeyIcon, Assignment as AssignmentIcon, CheckCircle as CheckCircleIcon, Pending as PendingIcon, Error as ErrorIcon, ExpandMore as ExpandMoreIcon, Settings as SettingsIcon, Notifications as NotificationsIcon, Security as SecurityIcon, Check as CheckIcon, ArrowBack as ArrowBackIcon } from '@mui/icons-material';
+import { Email as EmailIcon, Person as PersonIcon, VpnKey as KeyIcon, Assignment as AssignmentIcon, Settings as SettingsIcon, Notifications as NotificationsIcon, Security as SecurityIcon, ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { usersAPI, ticketsAPI } from '../api/api';
 import { useQuery } from '@tanstack/react-query';
@@ -44,7 +39,6 @@ const ProfilePage = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [success, setSuccess] = useState('');
-  const [showModal, setShowModal] = useState(false);
   const [settings, setSettings] = useState({
     emailNotifications: true,
     darkMode: false,
@@ -52,7 +46,7 @@ const ProfilePage = () => {
   });
   
   // Запрос на получение тикетов пользователя
-  const { data: tickets, isLoading: isTicketsLoading } = useQuery({
+  const { data: tickets } = useQuery({
     queryKey: ['userTickets'],
     queryFn: async () => {
       const response = await ticketsAPI.getAll();

@@ -3,16 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Typography, Box, TextField, Button, 
   Card, CardContent, Alert, CircularProgress, 
-  Grid, Avatar, Container, Divider, useTheme
+  Avatar, Container, useTheme
 } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
-import axios from 'axios';
 
 // Иконки
 import LockIcon from '@mui/icons-material/Lock';
 import EmailIcon from '@mui/icons-material/Email';
-import BugReportIcon from '@mui/icons-material/BugReport';
-import ApiIcon from '@mui/icons-material/Api';
 
 const LoginPage = () => {
   const [formData, setFormData] = useState({
@@ -21,8 +18,6 @@ const LoginPage = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
-  const [backendStatus, setBackendStatus] = useState(null);
-  const [authTestResult, setAuthTestResult] = useState(null);
   
   const navigate = useNavigate();
   const { login, error: authError, user } = useAuth();
@@ -71,116 +66,6 @@ const LoginPage = () => {
       setFormError('Произошла ошибка при входе. Пожалуйста, попробуйте снова.');
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  // Функция для проверки статуса бэкенда
-  const checkBackendStatus = async () => {
-    setBackendStatus({ loading: true });
-    try {
-      // Проверяем корневой URL бэкенда
-      const rootResponse = await axios.get('http://localhost:8000/');
-      console.log('Backend root response:', rootResponse.data);
-      
-      // Проверяем доступность Swagger UI - это гарантированно должно работать в FastAPI
-      const swaggerResponse = await axios.get('http://localhost:8000/docs', { 
-        validateStatus: (status) => status < 500 // Принимаем любой статус < 500 как успешный
-      });
-      console.log('Swagger docs available:', swaggerResponse.status === 200);
-      
-      // Проверяем API версию 1
-      try {
-        const apiV1Response = await axios.get('http://localhost:8000/api/v1', { 
-          validateStatus: (status) => status < 500
-        });
-        console.log('API v1 response:', apiV1Response.data);
-      } catch (apiError) {
-        console.log('API v1 check failed:', apiError.message);
-      }
-      
-      setBackendStatus({
-        success: true,
-        message: 'Бэкенд работает. Посмотрите консоль для деталей.'
-      });
-    } catch (error) {
-      console.error('Backend status check error:', error);
-      setBackendStatus({
-        success: false,
-        message: `Ошибка соединения с бэкендом: ${error.message}`
-      });
-    }
-  };
-
-  // Функция для тестирования API авторизации
-  const testAuthAPI = async () => {
-    setAuthTestResult({ loading: true });
-    
-    try {
-      // Попытка прямого доступа к API токенов
-      const formData = new URLSearchParams();
-      formData.append('username', 'admin');  // Пробуем с тестовым пользователем
-      formData.append('password', 'admin');
-      
-      const authResponse = await axios.post(
-        'http://localhost:8000/api/v1/auth/token', 
-        formData,
-        {
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          validateStatus: (status) => true, // Принимаем любой статус ответа для анализа
-        }
-      );
-      
-      console.log('Auth API Test Response:', authResponse);
-      
-      if (authResponse.status === 200 && authResponse.data.access_token) {
-        // Токен получен успешно, проверяем доступ к защищенным ресурсам
-        try {
-          const userResponse = await axios.get(
-            'http://localhost:8000/api/v1/users/me/',
-            {
-              headers: {
-                'Authorization': `Bearer ${authResponse.data.access_token}`
-              },
-              validateStatus: (status) => true,
-            }
-          );
-          
-          console.log('User API Test Response:', userResponse);
-          
-          if (userResponse.status === 200) {
-            setAuthTestResult({
-              success: true,
-              message: 'API авторизации работает корректно. Токен получен, данные пользователя доступны.'
-            });
-          } else {
-            setAuthTestResult({
-              success: false,
-              message: `Токен получен, но доступ к данным пользователя не работает. Статус: ${userResponse.status}`,
-              details: userResponse.data
-            });
-          }
-        } catch (userError) {
-          console.error('User API Test Error:', userError);
-          setAuthTestResult({
-            success: false,
-            message: `Токен получен, но ошибка при доступе к данным пользователя: ${userError.message}`
-          });
-        }
-      } else {
-        setAuthTestResult({
-          success: false,
-          message: `Ошибка получения токена. Статус: ${authResponse.status}`,
-          details: authResponse.data
-        });
-      }
-    } catch (error) {
-      console.error('Auth API Test Error:', error);
-      setAuthTestResult({
-        success: false,
-        message: `Ошибка тестирования API авторизации: ${error.message}`
-      });
     }
   };
 

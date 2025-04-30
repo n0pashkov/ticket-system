@@ -13,7 +13,6 @@ import {
   Search as SearchIcon,
   BlockOutlined as BlockIcon,
   CheckCircleOutline as ActivateIcon,
-  SelectAll as SelectAllIcon,
   ClearAll as ClearSelectionIcon
 } from '@mui/icons-material';
 import { usersAPI } from '../api/api';

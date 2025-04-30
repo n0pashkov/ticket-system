@@ -30,8 +30,7 @@ import {
   Select,
   MenuItem,
   IconButton,
-  CircularProgress,
-  Paper
+  CircularProgress
 } from '@mui/material';
 
 // Material UI иконки
@@ -42,31 +41,12 @@ import {
   Assignment as AssignmentIcon,
   Description as DescriptionIcon,
   ArrowBack as ArrowBackIcon,
-  Send as SendIcon,
   Delete as DeleteIcon,
-  Close as CloseIcon,
   CheckCircle as CheckCircleIcon,
-  PlayArrow as PlayArrowIcon,
-  Settings as SettingsIcon,
   Engineering as EngineeringIcon,
   AssignmentInd as AssignmentIndIcon,
-  Home as HomeIcon,
   Room as RoomIcon
 } from '@mui/icons-material';
-
-// Цвета для статусов
-const statusColors = {
-  'new': '#ffa726',
-  'in_progress': '#29b6f6',
-  'closed': '#66bb6a'
-};
-
-// Цвета для приоритетов
-const priorityColors = {
-  'low': '#8bc34a',
-  'medium': '#ffa726',
-  'high': '#f44336'
-};
 
 // Функция для форматирования статуса
 const formatStatus = (status) => {
@@ -95,7 +75,7 @@ const TicketDetailsPage = () => {
   const [actionError, setActionError] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const { users, getUserById } = useUsers();
+  const { getUserById } = useUsers();
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editFormData, setEditFormData] = useState({
     title: '',

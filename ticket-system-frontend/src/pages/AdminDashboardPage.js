@@ -1,11 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { 
-  Typography, Grid, Paper, Box, CircularProgress,
-  Card, CardContent, CardHeader, Divider, Alert,
-  Button, IconButton, Avatar, List, ListItem, ListItemText,
-  ListItemAvatar, Chip, LinearProgress, Tooltip, Table,
+  Typography, Grid, Box, CircularProgress,
+  Card, CardContent, CardHeader, Divider, Alert, AlertTitle,
+  Button, IconButton, Avatar, Chip, LinearProgress, Table,
   TableBody, TableCell, TableContainer, TableHead, TableRow,
-  TablePagination
+  TablePagination, Skeleton
 } from '@mui/material';
 import { useTickets } from '../hooks/useTickets';
 import { useAuth } from '../context/AuthContext';
@@ -17,12 +16,11 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import PeopleIcon from '@mui/icons-material/People';
 import PersonIcon from '@mui/icons-material/Person';
 import EngineeringIcon from '@mui/icons-material/Engineering';
 import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
 import BarChartIcon from '@mui/icons-material/BarChart';
-import CategoryIcon from '@mui/icons-material/Category';
+import RefreshIcon from '@mui/icons-material/Refresh';
 
 const statusColors = {
   'new': '#ffa726',
@@ -56,35 +54,182 @@ const formatPriority = (priority) => {
   return priorityMap[priority] || priority;
 };
 
-// Функция для форматирования роли пользователя
-const formatRole = (role) => {
-  const roleMap = {
-    'admin': 'Администратор',
-    'agent': 'Тех. специалист',
-    'user': 'Пользователь'
-  };
-  return roleMap[role] || role;
-};
+// Компонент статистической карточки
+const StatCard = ({ icon, count, label, color, onClick }) => (
+  <Card 
+    sx={{ 
+      borderRadius: 3, 
+      overflow: 'hidden', 
+      boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+      position: 'relative',
+      height: '100%',
+      cursor: onClick ? 'pointer' : 'default'
+    }}
+    onClick={onClick}
+  >
+    <Box 
+      sx={{ 
+        p: 1.5,
+        display: 'flex',
+        alignItems: 'center',
+        background: `linear-gradient(145deg, ${color}15 0%, ${color}25 100%)`,
+        height: '100%'
+      }}
+    >
+      <Avatar
+        sx={{ 
+          bgcolor: color,
+          width: 40, 
+          height: 40,
+          boxShadow: `0 4px 8px ${color}50`,
+        }}
+      >
+        {icon}
+      </Avatar>
+      <Box sx={{ ml: 1.5 }}>
+        <Typography variant="h5" sx={{ fontWeight: 600, fontSize: '1.3rem', lineHeight: 1.2 }}>
+          {count}
+        </Typography>
+        <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
+          {label}
+        </Typography>
+      </Box>
+    </Box>
+  </Card>
+);
 
-// Функция для получения иконки статуса
-const getStatusIcon = (status) => {
-  switch (status) {
-    case 'new':
-      return <ErrorIcon />;
-    case 'in_progress':
-      return <AccessTimeIcon />;
-    case 'closed':
-      return <CheckCircleIcon />;
-    default:
-      return <AssignmentIcon />;
-  }
-};
+// Компонент карточки заявки
+const TicketCard = ({ ticket, onClick }) => (
+  <Card 
+    sx={{ 
+      mb: 2, 
+      borderRadius: 3, 
+      overflow: 'hidden',
+      border: `1px solid #f0f0f0`,
+      position: 'relative',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+      cursor: 'pointer',
+      transition: 'transform 0.2s, box-shadow 0.2s',
+      '&:hover': {
+        transform: 'translateY(-2px)',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+      }
+    }}
+    onClick={onClick}
+  >
+    <Box 
+      sx={{ 
+        width: '100%', 
+        height: 6, 
+        backgroundColor: priorityColors[ticket.priority] || '#ccc' 
+      }} 
+    />
+    <CardContent sx={{ p: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', width: '100%' }}>
+        <Avatar 
+          sx={{ 
+            bgcolor: statusColors[ticket.status] || '#ccc',
+            width: 40, 
+            height: 40,
+            mr: 1.5,
+            flexShrink: 0
+          }}
+        >
+          {ticket.status === 'new' && <ErrorIcon />}
+          {ticket.status === 'in_progress' && <AccessTimeIcon />}
+          {ticket.status === 'closed' && <CheckCircleIcon />}
+        </Avatar>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography 
+            variant="subtitle1" 
+            sx={{ 
+              fontWeight: 600, 
+              mb: 1,
+              lineHeight: 1.3,
+              fontSize: '1rem',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              wordBreak: 'break-word',
+              width: '100%'
+            }}
+          >
+            {ticket.title}
+          </Typography>
+          
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1.5 }}>
+            <Chip 
+              label={formatStatus(ticket.status)} 
+              size="small" 
+              sx={{ 
+                bgcolor: `${statusColors[ticket.status]}15`, 
+                color: statusColors[ticket.status],
+                fontWeight: 500,
+                fontSize: '0.75rem',
+                maxWidth: '100%'
+              }}
+            />
+            <Chip 
+              label={formatPriority(ticket.priority)} 
+              size="small"
+              sx={{ 
+                bgcolor: `${priorityColors[ticket.priority]}15`, 
+                color: priorityColors[ticket.priority],
+                fontWeight: 500,
+                fontSize: '0.75rem',
+                maxWidth: '100%'
+              }}
+            />
+            
+            {ticket.created_by && (
+              <Chip 
+                label={ticket.created_by.name} 
+                size="small"
+                icon={<PersonIcon sx={{ fontSize: '0.8rem' }} />}
+                variant="outlined"
+                sx={{ 
+                  maxWidth: '120px',
+                  '.MuiChip-label': {
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }
+                }}
+              />
+            )}
+            
+            {ticket.assigned_to && (
+              <Chip 
+                label={ticket.assigned_to.name} 
+                size="small"
+                icon={<EngineeringIcon sx={{ fontSize: '0.8rem' }} />}
+                variant="outlined"
+                color="primary"
+                sx={{ 
+                  maxWidth: '120px',
+                  '.MuiChip-label': {
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }
+                }}
+              />
+            )}
+          </Box>
+        </Box>
+      </Box>
+    </CardContent>
+  </Card>
+);
 
 const AdminDashboardPage = () => {
   const { tickets, isLoading: isTicketsLoading, isError: isTicketsError } = useTickets();
   const { user } = useAuth();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Получаем статистику с сервера
   const { data: statsData, isLoading: isStatsLoading, isError: isStatsError } = useQuery({
@@ -110,18 +255,6 @@ const AdminDashboardPage = () => {
     useErrorBoundary: false
   });
 
-  // Получаем статистику активности пользователей
-  const { data: userActivity, isLoading: isUserActivityLoading, isError: isUserActivityError } = useQuery({
-    queryKey: ['statistics', 'user-activity'],
-    queryFn: () => statisticsAPI.getUserActivity(),
-    select: (response) => response.data,
-    onError: (error) => {
-      console.error('Error fetching user activity:', error);
-    },
-    retry: false,
-    useErrorBoundary: false
-  });
-
   // Получаем список всех пользователей
   const { data: usersData, isLoading: isUsersLoading, isError: isUsersError } = useQuery({
     queryKey: ['users'],
@@ -134,8 +267,8 @@ const AdminDashboardPage = () => {
     useErrorBoundary: false
   });
 
-  const isLoading = isTicketsLoading || isStatsLoading || isAgentPerformanceLoading || isUserActivityLoading || isUsersLoading;
-  const isError = isTicketsError || isStatsError || isAgentPerformanceError || isUserActivityError || isUsersError;
+  const isLoading = isTicketsLoading || isStatsLoading || isAgentPerformanceLoading || isUsersLoading;
+  const isError = isTicketsError || isStatsError || isAgentPerformanceError || isUsersError;
 
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
@@ -145,19 +278,35 @@ const AdminDashboardPage = () => {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
   };
+  
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    // Здесь можно добавить логику обновления данных
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1000);
+  };
 
   if (isLoading) {
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 4 }}>
-        <CircularProgress size={60} />
-        <Typography variant="h6" sx={{ mt: 2 }}>Загрузка данных...</Typography>
+      <Box sx={{ p: 2 }}>
+        <Skeleton variant="rectangular" height={120} sx={{ borderRadius: 4, mb: 2 }} />
+        <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+          <Skeleton variant="rectangular" height={100} width="25%" sx={{ borderRadius: 4 }} />
+          <Skeleton variant="rectangular" height={100} width="25%" sx={{ borderRadius: 4 }} />
+          <Skeleton variant="rectangular" height={100} width="25%" sx={{ borderRadius: 4 }} />
+          <Skeleton variant="rectangular" height={100} width="25%" sx={{ borderRadius: 4 }} />
+        </Box>
+        <Skeleton variant="rectangular" height={200} sx={{ borderRadius: 4, mb: 2 }} />
+        <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 4 }} />
       </Box>
     );
   }
 
   if (isError) {
     return (
-      <Alert severity="error" sx={{ mt: 2 }}>
+      <Alert severity="error" sx={{ mt: 2, borderRadius: 3 }}>
+        <AlertTitle>Ошибка загрузки</AlertTitle>
         Ошибка загрузки данных. Пожалуйста, попробуйте позже.
       </Alert>
     );
@@ -218,445 +367,386 @@ const AdminDashboardPage = () => {
   const regularUsersCount = users.filter(user => user.role === 'user').length;
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1">
+    <Box sx={{ width: '100%', p: 0, boxSizing: 'border-box' }}>
+      {/* Заголовок и кнопки управления */}
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: 3
+      }}>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>
           Панель администратора
         </Typography>
-        <Button 
-          variant="contained" 
-          color="primary" 
-          component={RouterLink} 
-          to="/category-management"
-        >
-          Управление категориями
-        </Button>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <IconButton 
+            color="primary"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            sx={{ 
+              backgroundColor: 'rgba(25, 118, 210, 0.08)', 
+              width: 42, 
+              height: 42 
+            }}
+          >
+            {refreshing ? <CircularProgress size={20} /> : <RefreshIcon />}
+          </IconButton>
+          
+          <Button 
+            variant="contained" 
+            color="primary" 
+            component={RouterLink} 
+            to="/category-management"
+            sx={{ 
+              borderRadius: 2,
+              boxShadow: '0 4px 10px rgba(25, 118, 210, 0.2)',
+              textTransform: 'none'
+            }}
+          >
+            Управление категориями
+          </Button>
+        </Box>
       </Box>
 
       {/* Приветствие администратора */}
-      <Paper 
-        elevation={3} 
+      <Card 
         sx={{ 
-          p: 3, 
           mb: 3, 
+          borderRadius: 4, 
           background: 'linear-gradient(120deg, #f44336 0%, #ff9800 100%)',
-          color: 'white'
+          color: 'white',
+          boxShadow: '0 4px 20px rgba(244, 67, 54, 0.3)',
+          overflow: 'hidden'
         }}
       >
-        <Grid container spacing={2} alignItems="center">
-          <Grid item>
-            <Avatar sx={{ width: 64, height: 64, bgcolor: 'white' }}>
-              <SupervisorAccountIcon color="error" sx={{ fontSize: 40 }} />
+        <CardContent sx={{ p: 2.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Avatar 
+              sx={{ 
+                width: 56, 
+                height: 56, 
+                bgcolor: 'white', 
+                color: '#f44336',
+                boxShadow: '0 4px 10px rgba(0,0,0,0.15)'
+              }}
+            >
+              <SupervisorAccountIcon fontSize="large" />
             </Avatar>
+            <Box sx={{ ml: 2 }}>
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                Здравствуйте, {user?.name || 'администратор'}!
+              </Typography>
+              <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.95rem' }}>
+                {tickets.length === 0 ? (
+                  'В системе пока нет заявок.'
+                ) : (
+                  `В системе ${tickets.length} ${
+                    tickets.length === 1 ? 'заявка' : 
+                    tickets.length >= 2 && tickets.length <= 4 ? 'заявки' : 'заявок'
+                  }${
+                    highPriorityTickets.length > 0 ? `, из них ${highPriorityTickets.length} с высоким приоритетом` : ''
+                  }.`
+                )}
+              </Typography>
+            </Box>
+            <Box sx={{ ml: 'auto' }}>
+              <Chip 
+                label={`Выполнено: ${resolvedPercentage}%`} 
+                color="default" 
+                sx={{ 
+                  fontWeight: 'bold', 
+                  bgcolor: 'rgba(255,255,255,0.9)', 
+                  color: '#d32f2f',
+                  boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+                }}
+              />
+            </Box>
+          </Box>
+        </CardContent>
+      </Card>
+      
+      {/* Основные показатели заявок */}
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600, fontSize: '1.05rem' }}>
+          Статистика заявок
+        </Typography>
+        
+        <Grid container spacing={2}>
+          <Grid item xs={6} sm={6} md={3}>
+            <StatCard 
+              icon={<AssignmentIcon sx={{ color: 'white', fontSize: '1.3rem' }} />} 
+              count={tickets.length} 
+              label="Всего заявок" 
+              color="#673ab7"
+            />
           </Grid>
-          <Grid item xs>
-            <Typography variant="h5">
-              Здравствуйте, {user?.name || 'администратор'}!
-            </Typography>
-            <Typography variant="subtitle1">
-              {tickets.length === 0 ? (
-                'В системе пока нет заявок.'
-              ) : (
-                `В системе ${tickets.length} ${
-                  tickets.length === 1 ? 'заявка' : 
-                  tickets.length >= 2 && tickets.length <= 4 ? 'заявки' : 'заявок'
-                }${
-                  highPriorityTickets.length > 0 ? `, из них ${highPriorityTickets.length} с высоким приоритетом` : ''
-                }.`
-              )}
-            </Typography>
+          <Grid item xs={6} sm={6} md={3}>
+            <StatCard 
+              icon={<ErrorIcon sx={{ color: 'white', fontSize: '1.3rem' }} />} 
+              count={newTickets.length} 
+              label="Новые" 
+              color={statusColors.new}
+            />
           </Grid>
-          <Grid item>
-            <Chip 
-              label={`Выполнено: ${resolvedPercentage}%`} 
-              color="default" 
-              sx={{ fontWeight: 'bold', bgcolor: 'rgba(255,255,255,0.9)', color: '#d32f2f' }}
+          <Grid item xs={6} sm={6} md={3}>
+            <StatCard 
+              icon={<AccessTimeIcon sx={{ color: 'white', fontSize: '1.3rem' }} />} 
+              count={inProgressTickets.length} 
+              label="В работе" 
+              color={statusColors.in_progress}
+            />
+          </Grid>
+          <Grid item xs={6} sm={6} md={3}>
+            <StatCard 
+              icon={<CheckCircleIcon sx={{ color: 'white', fontSize: '1.3rem' }} />} 
+              count={closedTickets.length} 
+              label="Закрыты" 
+              color={statusColors.closed}
             />
           </Grid>
         </Grid>
-      </Paper>
-      
-      {/* Основные показатели заявок */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper elevation={3} sx={{ p: 2, height: '100%', position: 'relative', overflow: 'hidden' }}>
-            <Box sx={{ position: 'relative', zIndex: 2 }}>
-              <Typography variant="h6">Всего заявок</Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
-                <AssignmentIcon sx={{ fontSize: 40, color: '#673ab7', mr: 1 }} />
-                <Typography variant="h3">{tickets.length}</Typography>
-              </Box>
-            </Box>
-            <Box sx={{ 
-              position: 'absolute', 
-              right: -20, 
-              bottom: -20, 
-              width: 100, 
-              height: 100, 
-              borderRadius: '50%', 
-              bgcolor: 'rgba(103, 58, 183, 0.1)',
-              zIndex: 1
-            }} />
-          </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper elevation={3} sx={{ p: 2, height: '100%', position: 'relative', overflow: 'hidden' }}>
-            <Box sx={{ position: 'relative', zIndex: 2 }}>
-              <Typography variant="h6" sx={{ color: statusColors.new }}>Новые</Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
-                <ErrorIcon sx={{ fontSize: 40, color: statusColors.new, mr: 1 }} />
-                <Typography variant="h3">{newTickets.length}</Typography>
-              </Box>
-            </Box>
-            <Box sx={{ 
-              position: 'absolute', 
-              right: -20, 
-              bottom: -20, 
-              width: 100, 
-              height: 100, 
-              borderRadius: '50%', 
-              bgcolor: `${statusColors.new}20`,
-              zIndex: 1
-            }} />
-          </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper elevation={3} sx={{ p: 2, height: '100%', position: 'relative', overflow: 'hidden' }}>
-            <Box sx={{ position: 'relative', zIndex: 2 }}>
-              <Typography variant="h6" sx={{ color: statusColors.in_progress }}>В работе</Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
-                <AccessTimeIcon sx={{ fontSize: 40, color: statusColors.in_progress, mr: 1 }} />
-                <Typography variant="h3">{inProgressTickets.length}</Typography>
-              </Box>
-            </Box>
-            <Box sx={{ 
-              position: 'absolute', 
-              right: -20, 
-              bottom: -20, 
-              width: 100, 
-              height: 100, 
-              borderRadius: '50%', 
-              bgcolor: `${statusColors.in_progress}20`,
-              zIndex: 1
-            }} />
-          </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper elevation={3} sx={{ p: 2, height: '100%', position: 'relative', overflow: 'hidden' }}>
-            <Box sx={{ position: 'relative', zIndex: 2 }}>
-              <Typography variant="h6" sx={{ color: statusColors.closed }}>Закрыто</Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
-                <CheckCircleIcon sx={{ fontSize: 40, color: statusColors.closed, mr: 1 }} />
-                <Typography variant="h3">{closedTickets.length}</Typography>
-              </Box>
-            </Box>
-            <Box sx={{ 
-              position: 'absolute', 
-              right: -20, 
-              bottom: -20, 
-              width: 100, 
-              height: 100, 
-              borderRadius: '50%', 
-              bgcolor: `${statusColors.closed}20`,
-              zIndex: 1
-            }} />
-          </Paper>
-        </Grid>
-      </Grid>
+      </Box>
 
       {/* Статистика по пользователям */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={4}>
-          <Paper elevation={3} sx={{ p: 2, height: '100%', position: 'relative', overflow: 'hidden' }}>
-            <Box sx={{ position: 'relative', zIndex: 2 }}>
-              <Typography variant="h6">Пользователи</Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
-                <PersonIcon sx={{ fontSize: 40, color: '#4caf50', mr: 1 }} />
-                <Typography variant="h3">{regularUsersCount}</Typography>
-              </Box>
-            </Box>
-            <Box sx={{ 
-              position: 'absolute', 
-              right: -20, 
-              bottom: -20, 
-              width: 100, 
-              height: 100, 
-              borderRadius: '50%', 
-              bgcolor: 'rgba(76, 175, 80, 0.1)',
-              zIndex: 1
-            }} />
-          </Paper>
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600, fontSize: '1.05rem' }}>
+          Пользователи в системе
+        </Typography>
+        
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={4}>
+            <StatCard 
+              icon={<PersonIcon sx={{ color: 'white', fontSize: '1.3rem' }} />} 
+              count={regularUsersCount} 
+              label="Пользователи" 
+              color="#4caf50"
+            />
+          </Grid>
+          <Grid item xs={12} sm={4}>
+            <StatCard 
+              icon={<EngineeringIcon sx={{ color: 'white', fontSize: '1.3rem' }} />} 
+              count={agentsCount} 
+              label="Тех. специалисты" 
+              color="#2196f3"
+            />
+          </Grid>
+          <Grid item xs={12} sm={4}>
+            <StatCard 
+              icon={<SupervisorAccountIcon sx={{ color: 'white', fontSize: '1.3rem' }} />} 
+              count={adminCount} 
+              label="Администраторы" 
+              color="#f44336"
+            />
+          </Grid>
         </Grid>
-        <Grid item xs={12} sm={6} md={4}>
-          <Paper elevation={3} sx={{ p: 2, height: '100%', position: 'relative', overflow: 'hidden' }}>
-            <Box sx={{ position: 'relative', zIndex: 2 }}>
-              <Typography variant="h6">Тех. специалисты</Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
-                <EngineeringIcon sx={{ fontSize: 40, color: '#2196f3', mr: 1 }} />
-                <Typography variant="h3">{agentsCount}</Typography>
-              </Box>
-            </Box>
-            <Box sx={{ 
-              position: 'absolute', 
-              right: -20, 
-              bottom: -20, 
-              width: 100, 
-              height: 100, 
-              borderRadius: '50%', 
-              bgcolor: 'rgba(33, 150, 243, 0.1)',
-              zIndex: 1
-            }} />
-          </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} md={4}>
-          <Paper elevation={3} sx={{ p: 2, height: '100%', position: 'relative', overflow: 'hidden' }}>
-            <Box sx={{ position: 'relative', zIndex: 2 }}>
-              <Typography variant="h6">Администраторы</Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
-                <SupervisorAccountIcon sx={{ fontSize: 40, color: '#f44336', mr: 1 }} />
-                <Typography variant="h3">{adminCount}</Typography>
-              </Box>
-            </Box>
-            <Box sx={{ 
-              position: 'absolute', 
-              right: -20, 
-              bottom: -20, 
-              width: 100, 
-              height: 100, 
-              borderRadius: '50%', 
-              bgcolor: 'rgba(244, 67, 54, 0.1)',
-              zIndex: 1
-            }} />
-          </Paper>
-        </Grid>
-      </Grid>
+      </Box>
 
       {/* Прогресс заявок */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12}>
-          <Paper elevation={3} sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Общий прогресс заявок
-            </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <Typography variant="body2" sx={{ minWidth: 100 }}>
-                Выполнено:
-              </Typography>
-              <Box sx={{ width: '100%', mr: 1 }}>
-                <LinearProgress 
-                  variant="determinate" 
-                  value={resolvedPercentage}
-                  sx={{ 
-                    height: 10, 
-                    borderRadius: 5,
-                    backgroundColor: '#e0e0e0',
-                    '& .MuiLinearProgress-bar': {
-                      backgroundColor: statusColors.closed
-                    }
-                  }} 
-                />
-              </Box>
-              <Typography variant="body2" sx={{ minWidth: 45 }}>
-                {resolvedPercentage}%
-              </Typography>
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <Typography variant="body2" sx={{ minWidth: 100 }}>
-                В работе:
-              </Typography>
-              <Box sx={{ width: '100%', mr: 1 }}>
-                <LinearProgress 
-                  variant="determinate" 
-                  value={(safeStats.by_status.in_progress / totalTicketsCount) * 100}
-                  sx={{ 
-                    height: 10, 
-                    borderRadius: 5,
-                    backgroundColor: '#e0e0e0',
-                    '& .MuiLinearProgress-bar': {
-                      backgroundColor: statusColors.in_progress
-                    }
-                  }} 
-                />
-              </Box>
-              <Typography variant="body2" sx={{ minWidth: 45 }}>
-                {Math.round((safeStats.by_status.in_progress / totalTicketsCount) * 100)}%
-              </Typography>
-            </Box>
+      <Card elevation={0} sx={{ mb: 3, borderRadius: 3, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+        <CardHeader 
+          title={
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Typography variant="body2" sx={{ minWidth: 100 }}>
-                Новые:
-              </Typography>
-              <Box sx={{ width: '100%', mr: 1 }}>
-                <LinearProgress 
-                  variant="determinate" 
-                  value={(safeStats.by_status.new / totalTicketsCount) * 100}
-                  sx={{ 
-                    height: 10, 
-                    borderRadius: 5,
-                    backgroundColor: '#e0e0e0',
-                    '& .MuiLinearProgress-bar': {
-                      backgroundColor: statusColors.new
-                    }
-                  }} 
-                />
-              </Box>
-              <Typography variant="body2" sx={{ minWidth: 45 }}>
-                {Math.round((safeStats.by_status.new / totalTicketsCount) * 100)}%
+              <TrendingUpIcon sx={{ mr: 1, color: '#1976d2' }} />
+              <Typography variant="h6" sx={{ fontSize: '1.1rem', fontWeight: 600 }}>
+                Общий прогресс заявок
               </Typography>
             </Box>
-          </Paper>
-        </Grid>
-      </Grid>
+          }
+        />
+        <Divider />
+        <CardContent>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+            <Typography variant="body2" sx={{ minWidth: 100, fontSize: '0.9rem' }}>
+              Выполнено:
+            </Typography>
+            <Box sx={{ width: '100%', mr: 1 }}>
+              <LinearProgress 
+                variant="determinate" 
+                value={resolvedPercentage}
+                sx={{ 
+                  height: 10, 
+                  borderRadius: 5,
+                  backgroundColor: '#e0e0e0',
+                  '& .MuiLinearProgress-bar': {
+                    backgroundColor: statusColors.closed
+                  }
+                }} 
+              />
+            </Box>
+            <Typography variant="body2" sx={{ minWidth: 45, fontWeight: 'bold' }}>
+              {resolvedPercentage}%
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+            <Typography variant="body2" sx={{ minWidth: 100, fontSize: '0.9rem' }}>
+              В работе:
+            </Typography>
+            <Box sx={{ width: '100%', mr: 1 }}>
+              <LinearProgress 
+                variant="determinate" 
+                value={(safeStats.by_status.in_progress / totalTicketsCount) * 100}
+                sx={{ 
+                  height: 10, 
+                  borderRadius: 5,
+                  backgroundColor: '#e0e0e0',
+                  '& .MuiLinearProgress-bar': {
+                    backgroundColor: statusColors.in_progress
+                  }
+                }} 
+              />
+            </Box>
+            <Typography variant="body2" sx={{ minWidth: 45, fontWeight: 'bold' }}>
+              {Math.round((safeStats.by_status.in_progress / totalTicketsCount) * 100)}%
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Typography variant="body2" sx={{ minWidth: 100, fontSize: '0.9rem' }}>
+              Новые:
+            </Typography>
+            <Box sx={{ width: '100%', mr: 1 }}>
+              <LinearProgress 
+                variant="determinate" 
+                value={(safeStats.by_status.new / totalTicketsCount) * 100}
+                sx={{ 
+                  height: 10, 
+                  borderRadius: 5,
+                  backgroundColor: '#e0e0e0',
+                  '& .MuiLinearProgress-bar': {
+                    backgroundColor: statusColors.new
+                  }
+                }} 
+              />
+            </Box>
+            <Typography variant="body2" sx={{ minWidth: 45, fontWeight: 'bold' }}>
+              {Math.round((safeStats.by_status.new / totalTicketsCount) * 100)}%
+            </Typography>
+          </Box>
+        </CardContent>
+      </Card>
 
       {/* Производительность агентов */}
       {agentPerformance && agentPerformance.length > 0 && (
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12}>
-            <Card elevation={3}>
-              <CardHeader 
-                title={
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <BarChartIcon sx={{ mr: 1 }} />
-                    <Typography variant="h6">Производительность технических специалистов</Typography>
-                  </Box>
-                } 
-              />
-              <Divider />
-              <CardContent>
-                <TableContainer>
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Специалист</TableCell>
-                        <TableCell align="right">Назначено</TableCell>
-                        <TableCell align="right">Решено</TableCell>
-                        <TableCell align="right">% решения</TableCell>
-                        <TableCell align="right">Среднее время (ч)</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {agentPerformance.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((agent) => (
-                        <TableRow key={agent.agent_id}>
-                          <TableCell>{agent.agent_name}</TableCell>
-                          <TableCell align="right">{agent.assigned_tickets}</TableCell>
-                          <TableCell align="right">{agent.resolved_tickets}</TableCell>
-                          <TableCell align="right">
-                            {(agent.resolution_rate * 100).toFixed(1)}%
-                          </TableCell>
-                          <TableCell align="right">
-                            {agent.avg_resolution_time_hours ? Math.round(agent.avg_resolution_time_hours) : 'Н/Д'}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-                <TablePagination
-                  component="div"
-                  count={agentPerformance.length}
-                  rowsPerPage={rowsPerPage}
-                  page={page}
-                  onPageChange={handleChangePage}
-                  onRowsPerPageChange={handleChangeRowsPerPage}
-                  labelRowsPerPage="Строк на странице:"
-                  labelDisplayedRows={({ from, to, count }) => `${from}–${to} из ${count}`}
-                />
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
+        <Card elevation={0} sx={{ mb: 3, borderRadius: 3, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+          <CardHeader 
+            title={
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <BarChartIcon sx={{ mr: 1, color: '#1976d2' }} />
+                <Typography variant="h6" sx={{ fontSize: '1.1rem', fontWeight: 600 }}>
+                  Производительность технических специалистов
+                </Typography>
+              </Box>
+            } 
+          />
+          <Divider />
+          <CardContent>
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Специалист</TableCell>
+                    <TableCell align="right">Назначено</TableCell>
+                    <TableCell align="right">Решено</TableCell>
+                    <TableCell align="right">% решения</TableCell>
+                    <TableCell align="right">Среднее время (ч)</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {agentPerformance.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((agent) => (
+                    <TableRow key={agent.agent_id}>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <Avatar sx={{ width: 28, height: 28, mr: 1, bgcolor: '#2196f3' }}>
+                            <EngineeringIcon sx={{ fontSize: '1rem' }} />
+                          </Avatar>
+                          {agent.agent_name}
+                        </Box>
+                      </TableCell>
+                      <TableCell align="right">{agent.assigned_tickets}</TableCell>
+                      <TableCell align="right">{agent.resolved_tickets}</TableCell>
+                      <TableCell align="right">
+                        <Chip
+                          label={`${(agent.resolution_rate * 100).toFixed(1)}%`}
+                          size="small"
+                          sx={{ 
+                            bgcolor: 
+                              agent.resolution_rate >= 0.8 ? `${statusColors.closed}20` : 
+                              agent.resolution_rate >= 0.5 ? `${statusColors.in_progress}20` : 
+                              `${statusColors.new}20`,
+                            color: 
+                              agent.resolution_rate >= 0.8 ? statusColors.closed : 
+                              agent.resolution_rate >= 0.5 ? statusColors.in_progress : 
+                              statusColors.new,
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        {agent.avg_resolution_time_hours ? Math.round(agent.avg_resolution_time_hours) : 'Н/Д'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            <TablePagination
+              component="div"
+              count={agentPerformance.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+              labelRowsPerPage="Строк на странице:"
+              labelDisplayedRows={({ from, to, count }) => `${from}–${to} из ${count}`}
+            />
+          </CardContent>
+        </Card>
       )}
 
       {/* Последние заявки */}
-      <Grid container spacing={3}>
-        <Grid item xs={12}>
-          <Card elevation={3}>
-            <CardHeader 
-              title={
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <AssignmentIcon sx={{ mr: 1 }} />
-                  <Typography variant="h6">Последние заявки</Typography>
-                </Box>
-              } 
-            />
-            <Divider />
-            <CardContent sx={{ pt: 0 }}>
-              {tickets.length > 0 ? (
-                <List>
-                  {tickets.slice(0, 10).map((ticket) => (
-                    <ListItem 
-                      key={ticket.id} 
-                      sx={{ 
-                        mb: 1, 
-                        bgcolor: '#f5f5f5', 
-                        borderRadius: 1,
-                        borderLeft: `4px solid ${priorityColors[ticket.priority] || '#777'}` 
-                      }}
-                      component={RouterLink}
-                      to={`/tickets/${ticket.id}`}
-                      style={{ textDecoration: 'none', color: 'inherit' }}
-                    >
-                      <ListItemAvatar>
-                        <Avatar sx={{ bgcolor: statusColors[ticket.status] || '#777' }}>
-                          {getStatusIcon(ticket.status)}
-                        </Avatar>
-                      </ListItemAvatar>
-                      <ListItemText 
-                        primary={ticket.title}
-                        secondary={
-                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 0.5 }}>
-                            <Chip 
-                              label={formatStatus(ticket.status)} 
-                              size="small" 
-                              sx={{ bgcolor: `${statusColors[ticket.status]}30`, color: statusColors[ticket.status] }}
-                            />
-                            <Chip 
-                              label={formatPriority(ticket.priority)} 
-                              size="small"
-                              sx={{ bgcolor: `${priorityColors[ticket.priority]}30`, color: priorityColors[ticket.priority] }}
-                            />
-                            <Chip 
-                              label={ticket.created_by?.name || 'Неизвестно'} 
-                              size="small"
-                              icon={<PersonIcon />}
-                              variant="outlined"
-                              color="default"
-                            />
-                            {ticket.assigned_to && (
-                              <Chip 
-                                label={`Исп: ${ticket.assigned_to.name || 'Неизвестно'}`} 
-                                size="small"
-                                icon={<EngineeringIcon />}
-                                variant="outlined"
-                                color="primary"
-                              />
-                            )}
-                          </Box>
-                        }
-                      />
-                    </ListItem>
-                  ))}
-                </List>
-              ) : (
-                <Typography sx={{ textAlign: 'center', py: 3 }} color="textSecondary">
-                  Заявок нет.
-                </Typography>
-              )}
-              {tickets.length > 10 && (
-                <Box sx={{ textAlign: 'center', mt: 2 }}>
-                  <Button 
-                    variant="outlined" 
-                    component={RouterLink} 
-                    to="/tickets"
-                  >
-                    Показать все заявки ({tickets.length})
-                  </Button>
-                </Box>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+      <Card elevation={0} sx={{ mb: 3, borderRadius: 3, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+        <CardHeader 
+          title={
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <AssignmentIcon sx={{ mr: 1, color: '#1976d2' }} />
+              <Typography variant="h6" sx={{ fontSize: '1.1rem', fontWeight: 600 }}>
+                Последние заявки
+              </Typography>
+            </Box>
+          } 
+          action={
+            tickets.length > 10 && (
+              <Button 
+                component={RouterLink} 
+                to="/tickets"
+                sx={{ 
+                  textTransform: 'none', 
+                  fontWeight: 500, 
+                  color: '#1976d2' 
+                }}
+              >
+                Все заявки
+              </Button>
+            )
+          }
+        />
+        <Divider />
+        <CardContent sx={{ p: 2 }}>
+          {tickets.length > 0 ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {tickets.slice(0, 10).map((ticket) => (
+                <TicketCard 
+                  key={ticket.id}
+                  ticket={ticket}
+                  onClick={() => window.location.href = `/tickets/${ticket.id}`}
+                />
+              ))}
+            </Box>
+          ) : (
+            <Typography sx={{ textAlign: 'center', py: 3 }} color="textSecondary">
+              Заявок нет.
+            </Typography>
+          )}
+        </CardContent>
+      </Card>
     </Box>
   );
 };
