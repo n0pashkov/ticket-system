@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Typography, Box, TextField, Button, 
   Card, CardContent, Alert, CircularProgress, 
-  Grid, Avatar, Container, Divider
+  Grid, Avatar, Container, Divider, useTheme
 } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
@@ -26,6 +26,18 @@ const LoginPage = () => {
   
   const navigate = useNavigate();
   const { login, error: authError, user } = useAuth();
+  const theme = useTheme();
+
+  // Устанавливаем цвет фона для body при монтировании компонента
+  useEffect(() => {
+    const originalColor = document.body.style.backgroundColor;
+    document.body.style.backgroundColor = theme.palette.background.default;
+    
+    // Возвращаем оригинальный цвет при размонтировании
+    return () => {
+      document.body.style.backgroundColor = originalColor;
+    };
+  }, [theme.palette.background.default]);
 
   // Перенаправляем на главную, если пользователь уже авторизован
   useEffect(() => {
@@ -182,15 +194,17 @@ const LoginPage = () => {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      p: 2
+      p: 2,
+      bgcolor: 'background.default'
     }}>
       <Container maxWidth="sm">
         <Card sx={{ 
           borderRadius: 4, 
           overflow: 'hidden',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+          boxShadow: (theme) => `0 4px 20px ${theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.1)'}`,
+          bgcolor: 'background.paper'
         }}>
-          <CardContent sx={{ p: 4 }}>
+          <CardContent sx={{ p: 4, bgcolor: 'background.paper' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
               <Avatar 
                 sx={{ 
