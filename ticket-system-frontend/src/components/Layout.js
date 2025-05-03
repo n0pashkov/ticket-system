@@ -233,14 +233,6 @@ const Layout = ({ children }) => {
                     {item.icon}
                   </ListItemIcon>
                   <ListItemText primary={item.text} />
-                  {item.path === '/tickets' && (
-                    <Chip 
-                      label="3" 
-                      size="small" 
-                      color="primary" 
-                      sx={{ height: 22, width: 22, p: 0 }}
-                    />
-                  )}
                 </ListItemButton>
               </ListItem>
             );
@@ -485,11 +477,7 @@ const Layout = ({ children }) => {
             <BottomNavigationAction label="Главная" icon={<DashboardIcon />} />
             <BottomNavigationAction 
               label="Заявки" 
-              icon={
-                <Badge color="error" badgeContent={3}>
-                  <ConfirmationNumberIcon />
-                </Badge>
-              } 
+              icon={<ConfirmationNumberIcon />} 
             />
             <BottomNavigationAction label="Профиль" icon={<PersonIcon />} />
             <BottomNavigationAction label="Настройки" icon={<SettingsIcon />} />
