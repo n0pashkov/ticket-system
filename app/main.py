@@ -12,6 +12,7 @@ from app.api.endpoints.async_tickets import router as async_tickets_router
 from app.core.config import settings
 from app.core.logging import setup_logging, get_logger
 from app.core.rate_limiter import RateLimitMiddleware
+from app.core.compression import GzipMiddleware
 from app.db.database import engine
 from app.models import models
 
@@ -53,6 +54,13 @@ app.add_middleware(
     RateLimitMiddleware,
     rate_limit=300,  # 300 запросов в минуту (можно настроить через env)
     time_window=60,
+)
+
+# Добавляем middleware для сжатия ответов gzip
+app.add_middleware(
+    GzipMiddleware,
+    minimum_size=1000,  # Сжимаем ответы размером от 1000 байт
+    compression_level=6  # Средний уровень сжатия (оптимальное соотношение скорости и степени сжатия)
 )
 
 # Middleware для отладки запросов и добавления CORS заголовков
@@ -129,6 +137,12 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 # Подключаем асинхронные маршруты
 app.include_router(async_tickets_router, prefix=f"{settings.API_V1_STR}/tickets")
 
+# Запускаем мониторинг ресурсов в фоновом режиме
+from app.core.resource_monitor import resource_monitor
+if settings.ENVIRONMENT == "production":
+    resource_monitor.start()
+    logger.info("Resource monitoring started")
+
 
 @app.get("/")
 def read_root():
@@ -147,4 +161,13 @@ if __name__ == "__main__":
     # Не удаляйте этот комментарий - он нужен для тестирования
     import uvicorn
     # В тестах мы подменяем этот вызов
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+
+# Очищаем ресурсы при завершении работы
+@app.on_event("shutdown")
+def shutdown_event():
+    """Обработчик события завершения работы приложения"""
+    if resource_monitor._running:
+        resource_monitor.stop()
+        logger.info("Resource monitoring stopped")
+    logger.info("Application shutdown") 
