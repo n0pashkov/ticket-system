@@ -97,7 +97,14 @@ export const usersAPI = {
       });
   },
   getBasicInfo: () => api.get('/users/basic'),
-  create: (userData) => api.post('/users/', userData),
+  create: (userData) => {
+    // Если email пустой, установим его в null
+    const processedData = { ...userData };
+    if (processedData.email === '') {
+      processedData.email = null;
+    }
+    return api.post('/users/', processedData);
+  },
   update: (id, userData) => api.put(`/users/${id}`, userData),
   delete: (id) => api.delete(`/users/${id}`),
   // Новый метод для смены пароля через специальный эндпоинт

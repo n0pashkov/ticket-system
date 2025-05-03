@@ -47,7 +47,7 @@ class Ticket(TicketBase):
 
 # Базовая схема для пользователя
 class UserBase(BaseModel):
-    email: EmailStr
+    email: Optional[str] = None
     username: str
     full_name: Optional[str] = None
     role: str = "user"
@@ -60,7 +60,7 @@ class UserCreate(UserBase):
 
 # Схема для обновления пользователя
 class UserUpdate(BaseModel):
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
     username: Optional[str] = None
     full_name: Optional[str] = None
     password: Optional[str] = None
@@ -80,7 +80,7 @@ class User(UserBase):
 # Схема для ответа эндпоинта /me
 class UserMe(BaseModel):
     id: int
-    email: EmailStr
+    email: Optional[str] = None
     username: str
     full_name: Optional[str] = None
     role: str

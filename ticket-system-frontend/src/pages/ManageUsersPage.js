@@ -665,12 +665,11 @@ const ManageUsersPage = () => {
             <TextField
               fullWidth
               margin="normal"
-              label="Email"
+              label="Email (опционально)"
               name="email"
               type="email"
               value={newUser.email}
               onChange={handleNewUserChange}
-              required
             />
             <TextField
               fullWidth
@@ -725,7 +724,7 @@ const ManageUsersPage = () => {
             onClick={handleCreateUser} 
             color="primary" 
             variant="contained"
-            disabled={!newUser.username || !newUser.email || !newUser.password}
+            disabled={!newUser.username || !newUser.password}
           >
             Создать
           </Button>
@@ -749,7 +748,7 @@ const ManageUsersPage = () => {
               <TextField
                 fullWidth
                 margin="normal"
-                label="Email"
+                label="Email (опционально)"
                 name="email"
                 type="email"
                 value={currentUser.email || ''}

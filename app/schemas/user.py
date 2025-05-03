@@ -6,7 +6,7 @@ from pydantic import BaseModel, EmailStr, ConfigDict
 class UserBase(BaseModel):
     """Базовая модель пользователя."""
     username: str
-    email: EmailStr
+    email: Optional[str] = None
     full_name: Optional[str] = None
     is_active: bool = True
     role: str = "user"

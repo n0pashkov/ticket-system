@@ -26,12 +26,13 @@ def create_user(
     current_user: User = Depends(get_current_admin)
 ):
     # Проверяем, существует ли пользователь с таким email
-    db_user_email = db.query(User).filter(User.email == user.email).first()
-    if db_user_email:
-        raise HTTPException(
-            status_code=400,
-            detail="Email уже зарегистрирован в системе"
-        )
+    if user.email:
+        db_user_email = db.query(User).filter(User.email == user.email).first()
+        if db_user_email:
+            raise HTTPException(
+                status_code=400,
+                detail="Email уже зарегистрирован в системе"
+            )
     
     # Проверяем, существует ли пользователь с таким username
     db_user_username = db.query(User).filter(User.username == user.username).first()

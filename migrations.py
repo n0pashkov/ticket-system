@@ -175,6 +175,56 @@ def create_ticket_messages_table():
     conn.close()
     print("Таблица ticket_messages создана")
 
+def make_email_optional():
+    """Миграция для изменения поля email на опциональное."""
+    conn = sqlite3.connect('ticket_system.db')
+    cursor = conn.cursor()
+    
+    try:
+        # Создаем временную таблицу
+        cursor.execute('''
+        CREATE TABLE users_temp (
+            id INTEGER PRIMARY KEY,
+            username TEXT UNIQUE NOT NULL,
+            email TEXT UNIQUE,
+            full_name TEXT NOT NULL,
+            hashed_password TEXT NOT NULL,
+            role TEXT,
+            is_active INTEGER,
+            created_at TIMESTAMP,
+            updated_at TIMESTAMP
+        )
+        ''')
+        
+        # Копируем данные
+        cursor.execute('''
+        INSERT INTO users_temp
+        SELECT id, username, email, full_name, hashed_password, role, is_active, created_at, updated_at
+        FROM users
+        ''')
+        
+        # Удаляем старую таблицу
+        cursor.execute('DROP TABLE users')
+        
+        # Переименовываем временную таблицу
+        cursor.execute('ALTER TABLE users_temp RENAME TO users')
+        
+        # Создаем индексы
+        cursor.execute('CREATE INDEX ix_users_email ON users(email)')
+        cursor.execute('CREATE INDEX ix_users_id ON users(id)')
+        cursor.execute('CREATE INDEX ix_users_username ON users(username)')
+        
+        conn.commit()
+        print("Миграция successful: поле email теперь опциональное")
+        return True
+        
+    except Exception as e:
+        conn.rollback()
+        print(f"Ошибка при выполнении миграции: {e}")
+        return False
+    finally:
+        conn.close()
+
 def main():
     """Основная функция для обработки аргументов командной строки."""
     parser = argparse.ArgumentParser(description="Управление миграциями базы данных")
@@ -239,6 +289,12 @@ def main():
         create_ticket_messages_table()
     else:
         parser.print_help()
+    
+    # Миграция для поля email
+    if make_email_optional():
+        print("Успешно сделано email опциональным")
+    else:
+        print("Ошибка при изменении поля email")
     
     return 0
 
