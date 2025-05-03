@@ -1,17 +1,20 @@
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status as http_status
+from fastapi import APIRouter, Depends, HTTPException, status as http_status, Query
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.security import get_current_active_user
 from app.core.dependencies import get_current_agent_or_admin
+from app.core.logging import get_logger
 from app.db.database import get_db
 from app.models.models import Ticket, User, UserRole, TicketStatus, TicketMessage
 from app.schemas.schemas import Ticket as TicketSchema
 from app.schemas.schemas import TicketCreate, TicketUpdate, TicketCloseWithMessage, TicketMessage as TicketMessageSchema
 
 router = APIRouter()
+logger = get_logger("api.tickets")
 
 
 # Создание новой заявки (доступно всем авторизованным пользователям)
@@ -21,18 +24,27 @@ def create_ticket(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    db_ticket = Ticket(
-        title=ticket.title,
-        description=ticket.description,
-        priority=ticket.priority,
-        category_id=ticket.category_id,
-        room_number=ticket.room_number,
-        creator_id=current_user.id
-    )
-    db.add(db_ticket)
-    db.commit()
-    db.refresh(db_ticket)
-    return db_ticket
+    try:
+        db_ticket = Ticket(
+            title=ticket.title,
+            description=ticket.description,
+            priority=ticket.priority,
+            category_id=ticket.category_id,
+            room_number=ticket.room_number,
+            creator_id=current_user.id
+        )
+        db.add(db_ticket)
+        db.commit()
+        db.refresh(db_ticket)
+        logger.info(f"Ticket created: ID={db_ticket.id}, by user_id={current_user.id}")
+        return db_ticket
+    except SQLAlchemyError as e:
+        logger.error(f"Database error creating ticket: {str(e)}")
+        db.rollback()
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Ошибка создания заявки"
+        )
 
 
 # Получение списка заявок
@@ -40,70 +52,49 @@ def create_ticket(
 def read_tickets(
     skip: int = 0,
     limit: int = 100,
-    status: str = None,
+    status: Optional[str] = Query(None, description="Фильтр по статусу заявки"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
     try:
-        print(f">>> DEBUG: User {current_user.username} (role: {current_user.role}) requested tickets list")
-        print(f">>> DEBUG: Query parameters - skip: {skip}, limit: {limit}, status: {status}")
+        logger.debug(f"User {current_user.username} (role: {current_user.role}) requested tickets list")
+        logger.debug(f"Query parameters - skip: {skip}, limit: {limit}, status: {status}")
         
-        # Строим запрос к БД
-        query = db.query(Ticket)
+        # Строим запрос к БД с предварительной загрузкой связанных данных
+        query = db.query(Ticket).options(
+            joinedload(Ticket.creator),
+            joinedload(Ticket.assigned_to),
+            joinedload(Ticket.category)
+        )
         
         # Фильтрация по статусу, если указан
         if status:
-            print(f">>> DEBUG: Filtering by status: {status}")
+            logger.debug(f"Filtering by status: {status}")
             query = query.filter(Ticket.status == status)
         
         # Фильтрация по типу пользователя
         if current_user.role == UserRole.USER:
-            print(f">>> DEBUG: User role is USER, filtering by creator_id: {current_user.id}")
+            logger.debug(f"User role is USER, filtering by creator_id: {current_user.id}")
             # Обычный пользователь видит только свои заявки, которые не скрыты
             query = query.filter(Ticket.creator_id == current_user.id, Ticket.is_hidden_for_creator == False)
-        else:
-            print(f">>> DEBUG: User role is {current_user.role}, showing all tickets")
         
         # Выполняем запрос с пагинацией
-        try:
-            db_tickets = query.offset(skip).limit(limit).all()
-            print(f">>> DEBUG: Got {len(db_tickets)} tickets")
-            
-            # Преобразуем объекты перед возвратом
-            tickets = []
-            for db_ticket in db_tickets:
-                # Преобразуем числовой приоритет в строку, если нужно
-                if isinstance(db_ticket.priority, int):
-                    priority_map = {1: "low", 2: "medium", 3: "high", 4: "critical"}
-                    priority = priority_map.get(db_ticket.priority, "medium")
-                else:
-                    priority = db_ticket.priority
-                
-                # Создаем словарь с данными тикета с правильными типами
-                ticket_dict = {
-                    "id": db_ticket.id,
-                    "title": db_ticket.title,
-                    "description": db_ticket.description,
-                    "status": db_ticket.status,
-                    "priority": priority,
-                    "category": getattr(db_ticket, "category", None),
-                    "created_at": db_ticket.created_at,
-                    "updated_at": db_ticket.updated_at,
-                    "creator_id": db_ticket.creator_id,
-                    "assigned_to_id": db_ticket.assigned_to_id,
-                    "resolution": db_ticket.resolution,
-                    "room_number": db_ticket.room_number
-                }
-                tickets.append(ticket_dict)
-                
-            return tickets
-        except Exception as db_error:
-            print(f">>> DEBUG: Database error: {db_error}")
-            raise
+        db_tickets = query.order_by(Ticket.created_at.desc()).offset(skip).limit(limit).all()
+        logger.debug(f"Retrieved {len(db_tickets)} tickets")
+        
+        return db_tickets
+    except SQLAlchemyError as e:
+        logger.error(f"Database error in read_tickets: {str(e)}")
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Ошибка при получении списка заявок"
+        )
     except Exception as e:
-        print(f">>> DEBUG: Error in read_tickets: {e}")
-        print(f">>> DEBUG: Error type: {type(e)}")
-        raise
+        logger.error(f"Unexpected error in read_tickets: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Внутренняя ошибка сервера"
+        )
 
 
 # Получение конкретной заявки по ID
@@ -113,25 +104,41 @@ def read_ticket(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
-    
-    if not ticket:
-        raise HTTPException(status_code=404, detail="Заявка не найдена")
-    
-    # Проверка прав доступа к заявке
-    if current_user.role == UserRole.USER:
-        if ticket.creator_id != current_user.id:
-            raise HTTPException(
-                status_code=http_status.HTTP_403_FORBIDDEN,
-                detail="Нет прав для просмотра данной заявки"
-            )
-        # Проверяем, не скрыта ли заявка для пользователя
-        if ticket.is_hidden_for_creator:
+    try:
+        # Получаем заявку с предварительной загрузкой связанных данных
+        ticket = db.query(Ticket).options(
+            joinedload(Ticket.creator),
+            joinedload(Ticket.assigned_to),
+            joinedload(Ticket.category)
+        ).filter(Ticket.id == ticket_id).first()
+        
+        if not ticket:
+            logger.warning(f"Ticket with ID {ticket_id} not found")
             raise HTTPException(status_code=404, detail="Заявка не найдена")
-    
-    # Агенты и администраторы могут просматривать все заявки
-    
-    return ticket
+        
+        # Проверка прав доступа к заявке
+        if current_user.role == UserRole.USER:
+            if ticket.creator_id != current_user.id:
+                logger.warning(f"User {current_user.id} tried to access ticket {ticket_id} without permissions")
+                raise HTTPException(
+                    status_code=http_status.HTTP_403_FORBIDDEN,
+                    detail="Нет прав для просмотра данной заявки"
+                )
+            # Проверяем, не скрыта ли заявка для пользователя
+            if ticket.is_hidden_for_creator:
+                logger.warning(f"Ticket {ticket_id} is hidden for creator {current_user.id}")
+                raise HTTPException(status_code=404, detail="Заявка не найдена")
+        
+        logger.debug(f"Ticket {ticket_id} accessed by user {current_user.id}")
+        return ticket
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving ticket {ticket_id}: {str(e)}")
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Ошибка при получении заявки"
+        )
 
 
 # Обновление заявки

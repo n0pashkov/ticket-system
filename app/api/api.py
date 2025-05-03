@@ -1,38 +1,41 @@
 from fastapi import APIRouter
 
 from app.api.endpoints import auth, users, tickets, statistics, notifications, attachments, equipment, categories
+from app.core.logging import get_logger
+
+logger = get_logger("api")
 
 # Создаем основной API роутер
 api_router = APIRouter()
 
 # Подключаем эндпоинты для аутентификации
-print(">>> DEBUG: Registering auth router")
+logger.debug("Registering auth router")
 api_router.include_router(auth.router, prefix="/auth", tags=["authentication"])
 
 # Подключаем эндпоинты для пользователей
-print(">>> DEBUG: Registering users router")
+logger.debug("Registering users router")
 api_router.include_router(users.router, prefix="/users", tags=["users"])
 
 # Подключаем эндпоинты для заявок
-print(">>> DEBUG: Registering tickets router")
+logger.debug("Registering tickets router")
 api_router.include_router(tickets.router, prefix="/tickets", tags=["tickets"])
 
 # Подключаем эндпоинты для статистики и отчетности
-print(">>> DEBUG: Registering statistics router")
+logger.debug("Registering statistics router")
 api_router.include_router(statistics.router, prefix="/statistics", tags=["statistics"])
 
 # Подключаем эндпоинты для уведомлений
-print(">>> DEBUG: Registering notifications router")
+logger.debug("Registering notifications router")
 api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 
 # Подключаем эндпоинты для вложений
-print(">>> DEBUG: Registering attachments router")
+logger.debug("Registering attachments router")
 api_router.include_router(attachments.router, prefix="/attachments", tags=["attachments"])
 
 # Подключаем эндпоинты для оборудования
-print(">>> DEBUG: Registering equipment router")
+logger.debug("Registering equipment router")
 api_router.include_router(equipment.router, prefix="/equipment", tags=["equipment"])
 
 # Подключаем эндпоинты для категорий заявок
-print(">>> DEBUG: Registering categories router")
+logger.debug("Registering categories router")
 api_router.include_router(categories.router, prefix="/categories", tags=["categories"]) 

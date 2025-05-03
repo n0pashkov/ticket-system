@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Text, DateTime, Enum
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Text, DateTime, Enum, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
@@ -85,6 +85,15 @@ class User(Base):
     # Связь с записями о техническом обслуживании
     maintenance_records = relationship("Maintenance", back_populates="performed_by_user")
 
+    __table_args__ = (
+        # Убедимся, что username уникален
+        UniqueConstraint('username', name='uq_users_username'),
+        # Индекс для поиска по email
+        Index('ix_users_email', 'email'),
+        # Индекс для поиска по роли
+        Index('ix_users_role', 'role'),
+    )
+
 
 # Импортируем Ticket из отдельного модуля
 from app.models.ticket import Ticket
@@ -113,18 +122,18 @@ class Ticket(Base):
     __tablename__ = "tickets"
 
     id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, index=True)
-    description = Column(Text)
-    status = Column(String, default=TicketStatus.NEW)
-    priority = Column(String, default="medium")  # low, medium, high
+    title = Column(String(100), nullable=False)
+    description = Column(Text, nullable=False)
+    status = Column(Enum(TicketStatus), default=TicketStatus.NEW, nullable=False)
+    priority = Column(String(20), default="medium", nullable=False)
     resolution = Column(Text, nullable=True)
-    room_number = Column(String, nullable=True)  # Добавленное поле для номера кабинета
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    is_hidden_for_creator = Column(Boolean, default=False)  # Флаг для "мягкого удаления"
+    room_number = Column(String(20), nullable=True)
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+    is_hidden_for_creator = Column(Boolean, default=False, nullable=False)
     
     # Внешний ключ на создателя
-    creator_id = Column(Integer, ForeignKey("users.id"))
+    creator_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     creator = relationship("User", foreign_keys=[creator_id], back_populates="tickets")
     
     # Внешний ключ на исполнителя (агента)
@@ -141,9 +150,19 @@ class Ticket(Base):
     # Связь с сообщениями к заявке
     messages = relationship("TicketMessage", back_populates="ticket", cascade="all, delete-orphan")
     
-    # Связь с оборудованием - временно отключена, так как столбца нет в базе данных
-    # equipment_id = Column(Integer, ForeignKey("equipment.id"), nullable=True)
-    # equipment = relationship("Equipment", back_populates="tickets")
+    # Добавляем индексы для ускорения запросов
+    __table_args__ = (
+        # Индекс по статусу (частые запросы фильтруют по статусу)
+        Index('ix_tickets_status', 'status'),
+        # Индекс по дате создания (для сортировки)
+        Index('ix_tickets_created_at', 'created_at'),
+        # Индекс по создателю и скрытости (для фильтрации заявок пользователя)
+        Index('ix_tickets_creator_hidden', 'creator_id', 'is_hidden_for_creator'),
+        # Индекс по назначенному агенту (для фильтрации заявок агента)
+        Index('ix_tickets_assigned_to', 'assigned_to_id'),
+        # Составной индекс для поиска по статусу и приоритету
+        Index('ix_tickets_status_priority', 'status', 'priority'),
+    )
 
     def __repr__(self):
         return f"<Ticket(id={self.id}, title='{self.title}', status='{self.status}', priority='{self.priority}')>"
@@ -258,4 +277,11 @@ class Maintenance(Base):
     
     # Внешний ключ на пользователя, выполнившего обслуживание
     performed_by = Column(Integer, ForeignKey("users.id"))
-    performed_by_user = relationship("User", back_populates="maintenance_records") 
+    performed_by_user = relationship("User", back_populates="maintenance_records")
+
+    __table_args__ = (
+        # Индекс для поиска по оборудованию
+        Index('ix_maintenance_equipment_id', 'equipment_id'),
+        # Индекс для поиска по дате обслуживания
+        Index('ix_maintenance_performed_at', 'performed_at'),
+    ) 
