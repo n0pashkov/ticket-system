@@ -8,6 +8,7 @@ const api = axios.create({
   baseURL: baseURL,
   headers: {
     'Content-Type': 'application/json',
+    // Убираем no-cache заголовки, чтобы разрешить кэширование
   },
   // Добавляем таймаут для запросов
   timeout: 10000,
@@ -21,6 +22,33 @@ api.interceptors.request.use(
       // FastAPI ожидает формат "Bearer {token}"
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // Добавляем заголовки для кэширования в зависимости от типа запроса
+    if (config.method === 'get') {
+      // Проверяем, если это запрос для пользовательских данных - отключаем кэширование
+      if (config.url.includes('/users/me')) {
+        // Для данных о пользователе никогда не используем кэш, чтобы избежать проблем с авторизацией
+        config.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+        config.headers['Pragma'] = 'no-cache';
+        config.headers['Expires'] = '0';
+      }
+      // Для GET-запросов разрешаем кэширование
+      else if (config.url.includes('/categories')) {
+        // Для категорий используем долгое кэширование, т.к. они редко меняются
+        config.headers['Cache-Control'] = 'max-age=3600, stale-while-revalidate=120';
+      } else if (config.url.includes('/statistics')) {
+        // Для статистики используем короткое кэширование
+        config.headers['Cache-Control'] = 'max-age=600, stale-while-revalidate=60';
+      } else {
+        // Для остальных GET-запросов используем умеренное кэширование
+        config.headers['Cache-Control'] = 'max-age=60, stale-while-revalidate=30';
+      }
+    } else {
+      // Для остальных методов (POST, PUT, DELETE) запрещаем кэширование
+      config.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+      config.headers['Pragma'] = 'no-cache';
+    }
+    
     // Включаем обработку редиректов
     config.maxRedirects = 5;
     return config;
@@ -33,7 +61,13 @@ api.interceptors.request.use(
 
 // Добавим интерцептор для обработки ошибок ответа
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Сохраняем заголовки кэширования из ответа для последующего использования
+    if (response.headers['cache-control']) {
+      console.debug('Server cache headers:', response.headers['cache-control']);
+    }
+    return response;
+  },
   (error) => {
     // Логируем ошибки для отладки
     console.error('API Error:', error.response?.status, error.response?.data);
@@ -51,6 +85,20 @@ api.interceptors.response.use(
 // Исправляем URL для API аутентификации
 const authBaseURL = 'http://localhost:8000';
 
+// Функция для очистки авторизационных данных
+export const clearAuthData = () => {
+  localStorage.removeItem('token');
+  
+  // Очищаем кэш для API запросов, связанных с авторизацией
+  if (window.caches) {
+    caches.keys().then(names => {
+      names.forEach(name => {
+        caches.delete(name);
+      });
+    });
+  }
+};
+
 // API endpoints
 export const authAPI = {
   login: (credentials) => {
@@ -63,6 +111,9 @@ export const authAPI = {
       baseURL: authBaseURL,
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
       },
       timeout: 5000,
     });
@@ -84,7 +135,14 @@ export const usersAPI = {
     console.log('Запрос текущего пользователя с токеном:', token ? 'Токен есть' : 'Токен отсутствует');
     
     // Используем существующий эндпоинт с trailing slash, как он определен в бэкенде
-    return api.get('/users/me/')
+    return api.get('/users/me/', {
+      headers: {
+        // Принудительно отключаем кэширование для запросов профиля
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    })
       .then(response => {
         console.log('Получены данные пользователя:', response.data);
         return response;
@@ -129,7 +187,17 @@ export const ticketsAPI = {
       }
     });
     
-    return api.get('/tickets/', { params: cleanFilters })
+    // Добавляем случайный параметр для предотвращения кэширования
+    cleanFilters._nocache = new Date().getTime();
+    
+    return api.get('/tickets/', { 
+      params: cleanFilters,
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    })
       .then(response => {
         console.log(">>> DEBUG: Получены заявки:", response.data);
         
@@ -166,7 +234,14 @@ export const ticketsAPI = {
         throw error;
       });
   },
-  getById: (id) => api.get(`/tickets/${id}`),
+  getById: (id) => api.get(`/tickets/${id}`, {
+    params: { _nocache: new Date().getTime() },
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    }
+  }),
   create: (ticketData) => {
     console.log('Создание заявки с данными:', ticketData);
     return api.post('/tickets/', ticketData)
@@ -185,33 +260,112 @@ export const ticketsAPI = {
   delete: (id) => api.delete(`/tickets/${id}`),
   
   // Дополнительные методы API
-  assign: (ticketId, agentId) => api.put(`/tickets/${ticketId}/assign/${agentId}`, {}),
-  selfAssign: (ticketId) => api.post(`/tickets/${ticketId}/assign`, {}),
-  updateStatus: (ticketId, status) => api.put(`/tickets/${ticketId}/status/${status}`, {}),
-  closeTicket: (ticketId) => api.post(`/tickets/${ticketId}/close`, {}),
+  assign: (ticketId, agentId) => api.put(`/tickets/${ticketId}/assign/${agentId}`, {}, {
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    }
+  }),
+  
+  selfAssign: (ticketId) => api.post(`/tickets/${ticketId}/assign`, {}, {
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    }
+  }),
+  
+  updateStatus: (ticketId, status) => api.put(`/tickets/${ticketId}/status/${status}`, {}, {
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    }
+  }),
+  
+  closeTicket: (ticketId) => api.post(`/tickets/${ticketId}/close`, {}, {
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    }
+  }),
   // Новый метод для закрытия заявки с сообщением
-  closeTicketWithMessage: (ticketId, message) => api.post(`/tickets/${ticketId}/close-with-message`, { message }),
+  closeTicketWithMessage: (ticketId, message) => api.post(`/tickets/${ticketId}/close-with-message`, { message }, {
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    }
+  }),
   // Получение сообщений заявки
-  getMessages: (ticketId) => api.get(`/tickets/${ticketId}/messages`),
+  getMessages: (ticketId) => api.get(`/tickets/${ticketId}/messages`, {
+    params: { _nocache: new Date().getTime() },
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    }
+  }),
   // Получение количества сообщений для заявки
   getMessageCount: (ticketId) => api.get(`/tickets/${ticketId}/messages/count`),
 };
 
 // API для категорий заявок
 export const categoriesAPI = {
-  getAll: (params = {}) => api.get('/categories/', { params }),
-  getById: (id) => api.get(`/categories/${id}`),
-  create: (categoryData) => api.post('/categories/', categoryData),
-  update: (id, categoryData) => api.put(`/categories/${id}`, categoryData),
-  delete: (id) => api.delete(`/categories/${id}`),
+  getAll: (params = {}) => api.get('/categories/', { 
+    params,
+    headers: {
+      // Для категорий явно указываем долгое кэширование
+      'Cache-Control': 'max-age=3600, stale-while-revalidate=120'
+    }
+  }),
+  getById: (id) => api.get(`/categories/${id}`, {
+    headers: {
+      'Cache-Control': 'max-age=3600, stale-while-revalidate=120'
+    }
+  }),
+  create: (categoryData) => api.post('/categories/', categoryData, {
+    headers: {
+      'Cache-Control': 'no-store'
+    }
+  }),
+  update: (id, categoryData) => api.put(`/categories/${id}`, categoryData, {
+    headers: {
+      'Cache-Control': 'no-store'
+    }
+  }),
+  delete: (id) => api.delete(`/categories/${id}`, {
+    headers: {
+      'Cache-Control': 'no-store'
+    }
+  }),
 };
 
 // API для статистики
 export const statisticsAPI = {
-  getTicketStats: () => api.get('/statistics/tickets-summary'),
-  getAgentPerformance: (days = 30) => api.get(`/statistics/agent-performance?days=${days}`),
-  getTicketsByPeriod: (period = 'month') => api.get(`/statistics/tickets-by-period?period=${period}`),
-  getUserActivity: (top = 10) => api.get(`/statistics/user-activity?top=${top}`),
+  getTicketStats: () => api.get('/statistics/tickets-summary', {
+    headers: {
+      // Для статистики разрешаем кэширование на умеренное время
+      'Cache-Control': 'max-age=600, stale-while-revalidate=60'
+    }
+  }),
+  getAgentPerformance: (days = 30) => api.get(`/statistics/agent-performance?days=${days}`, {
+    headers: {
+      'Cache-Control': 'max-age=600, stale-while-revalidate=60'
+    }
+  }),
+  getTicketsByPeriod: (period = 'month') => api.get(`/statistics/tickets-by-period?period=${period}`, {
+    headers: {
+      'Cache-Control': 'max-age=600, stale-while-revalidate=60'
+    }
+  }),
+  getUserActivity: (top = 10) => api.get(`/statistics/user-activity?top=${top}`, {
+    headers: {
+      'Cache-Control': 'max-age=600, stale-while-revalidate=60'
+    }
+  }),
 };
 
 export default api;

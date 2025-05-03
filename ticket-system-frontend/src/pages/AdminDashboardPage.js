@@ -236,6 +236,9 @@ const AdminDashboardPage = () => {
     queryKey: ['statistics', 'tickets-summary'],
     queryFn: statisticsAPI.getTicketStats,
     select: (response) => response.data,
+    // Добавляем настройки кэширования для статистики согласно серверной конфигурации
+    staleTime: 5 * 60 * 1000, // 5 минут
+    cacheTime: 10 * 60 * 1000, // 10 минут
     onError: (error) => {
       console.error('Error fetching statistics:', error);
     },
@@ -248,6 +251,9 @@ const AdminDashboardPage = () => {
     queryKey: ['statistics', 'agent-performance'],
     queryFn: () => statisticsAPI.getAgentPerformance(),
     select: (response) => response.data,
+    // Добавляем настройки кэширования для данных производительности агентов
+    staleTime: 5 * 60 * 1000, // 5 минут
+    cacheTime: 10 * 60 * 1000, // 10 минут
     onError: (error) => {
       console.error('Error fetching agent performance:', error);
     },
@@ -260,6 +266,9 @@ const AdminDashboardPage = () => {
     queryKey: ['users'],
     queryFn: usersAPI.getAll,
     select: (response) => response.data,
+    // Добавляем настройки кэширования для пользовательских данных
+    staleTime: 15 * 60 * 1000, // 15 минут
+    cacheTime: 30 * 60 * 1000, // 30 минут
     onError: (error) => {
       console.error('Error fetching users:', error);
     },

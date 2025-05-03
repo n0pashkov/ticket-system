@@ -1,22 +1,36 @@
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.core.config import settings
-from app.core.security import authenticate_user, create_access_token
-from app.db.database import get_db
+from app.core.security import verify_password, create_access_token
+from app.db.async_database import get_async_db
+from app.models.models import User
 from app.schemas.schemas import Token
 
 router = APIRouter()
+
+# Асинхронная функция аутентификации
+async def authenticate_user_async(db: AsyncSession, username: str, password: str):
+    query = select(User).filter(User.username == username)
+    result = await db.execute(query)
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        return False
+    if not verify_password(password, user.hashed_password):
+        return False
+    return user
 
 
 @router.post("/token", response_model=Token)
 async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
-    user = authenticate_user(db, form_data.username, form_data.password)
+    user = await authenticate_user_async(db, form_data.username, form_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

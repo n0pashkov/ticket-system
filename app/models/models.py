@@ -59,31 +59,34 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     
     # Связь с заявками (пользователь может создать много заявок)
-    tickets = relationship("Ticket", foreign_keys="Ticket.creator_id", back_populates="creator")
+    tickets = relationship("Ticket", foreign_keys="Ticket.creator_id", back_populates="creator", lazy="selectin")
     
     # Связь с заявками агента (агент может обрабатывать много заявок)
     assigned_tickets = relationship("Ticket", 
                                  foreign_keys="Ticket.assigned_to_id", 
-                                 back_populates="assigned_to")
+                                 back_populates="assigned_to",
+                                 lazy="selectin")
     
     # Связь с уведомлениями
-    notifications = relationship("Notification", back_populates="user")
+    notifications = relationship("Notification", back_populates="user", lazy="selectin")
     
     # Связь с вложениями
-    attachments = relationship("Attachment", back_populates="uploaded_by_user")
+    attachments = relationship("Attachment", back_populates="uploaded_by_user", lazy="selectin")
     
     # Связь с оборудованием (созданным пользователем)
     created_equipment = relationship("Equipment", 
                                   foreign_keys="Equipment.created_by_id", 
-                                  back_populates="created_by")
+                                  back_populates="created_by",
+                                  lazy="selectin")
     
     # Связь с оборудованием (обновленным пользователем)
     updated_equipment = relationship("Equipment", 
                                   foreign_keys="Equipment.updated_by_id", 
-                                  back_populates="updated_by")
+                                  back_populates="updated_by",
+                                  lazy="selectin")
     
     # Связь с записями о техническом обслуживании
-    maintenance_records = relationship("Maintenance", back_populates="performed_by_user")
+    maintenance_records = relationship("Maintenance", back_populates="performed_by_user", lazy="selectin")
 
     __table_args__ = (
         # Убедимся, что username уникален
@@ -111,7 +114,7 @@ class TicketCategory(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Связь с заявками
-    tickets = relationship("Ticket", back_populates="category")
+    tickets = relationship("Ticket", back_populates="category", lazy="selectin")
     
     def __repr__(self):
         return f"<TicketCategory(id={self.id}, name='{self.name}')>"
@@ -134,21 +137,21 @@ class Ticket(Base):
     
     # Внешний ключ на создателя
     creator_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    creator = relationship("User", foreign_keys=[creator_id], back_populates="tickets")
+    creator = relationship("User", foreign_keys=[creator_id], back_populates="tickets", lazy="selectin")
     
     # Внешний ключ на исполнителя (агента)
     assigned_to_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    assigned_to = relationship("User", foreign_keys=[assigned_to_id], back_populates="assigned_tickets")
+    assigned_to = relationship("User", foreign_keys=[assigned_to_id], back_populates="assigned_tickets", lazy="selectin")
     
     # Внешний ключ на категорию
     category_id = Column(Integer, ForeignKey("ticket_categories.id"), nullable=True)
-    category = relationship("TicketCategory", back_populates="tickets")
+    category = relationship("TicketCategory", back_populates="tickets", lazy="selectin")
     
     # Связь с вложениями
-    attachments = relationship("Attachment", back_populates="ticket", cascade="all, delete-orphan")
+    attachments = relationship("Attachment", back_populates="ticket", cascade="all, delete-orphan", lazy="selectin")
     
     # Связь с сообщениями к заявке
-    messages = relationship("TicketMessage", back_populates="ticket", cascade="all, delete-orphan")
+    messages = relationship("TicketMessage", back_populates="ticket", cascade="all, delete-orphan", lazy="selectin")
     
     # Добавляем индексы для ускорения запросов
     __table_args__ = (

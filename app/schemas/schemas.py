@@ -72,7 +72,6 @@ class UserUpdate(BaseModel):
 class User(UserBase):
     id: int
     is_active: bool
-    tickets: Optional[List[Ticket]] = []
 
     model_config = ConfigDict(from_attributes=True)
 

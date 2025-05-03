@@ -6,6 +6,7 @@ import {
   Avatar, Container, useTheme
 } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
+import { clearAuthData } from '../api/api'; // Импортируем функцию для очистки кэша
 
 // Иконки
 import LockIcon from '@mui/icons-material/Lock';
@@ -22,6 +23,13 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const { login, error: authError, user } = useAuth();
   const theme = useTheme();
+
+  // Очищаем кэш и сессию при загрузке страницы входа
+  useEffect(() => {
+    // Очищаем токен и кэш при загрузке страницы логина
+    // чтобы предотвратить проблемы с авторизацией
+    clearAuthData();
+  }, []);
 
   // Устанавливаем цвет фона для body при монтировании компонента
   useEffect(() => {

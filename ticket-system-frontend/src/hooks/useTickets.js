@@ -27,6 +27,14 @@ export const useTickets = (filters = {}) => {
       }
       return data.data || [];
     },
+    // Обновленные настройки кэширования для более быстрого отклика
+    staleTime: 10 * 1000, // 10 секунд вместо 1 минуты
+    cacheTime: 30 * 60 * 1000, // 30 минут
+    // Включаем обновление при монтировании, фокусе окна и восстановлении соединения
+    refetchOnMount: true,
+    refetchOnWindowFocus: true, // Обновляем при возвращении на вкладку
+    refetchOnReconnect: true,
+    refetchInterval: 30 * 1000, // Обновляем каждые 30 секунд
     onError: (error) => {
       console.error('Ошибка при получении заявок:', error);
       console.error('Детали ошибки:', error.response?.status, error.response?.data);
@@ -46,7 +54,10 @@ export const useTickets = (filters = {}) => {
 
   const updateTicketMutation = useMutation({
     mutationFn: ({ id, data }) => ticketsAPI.update(id, data),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
+      // Обновляем кэш конкретной заявки
+      queryClient.invalidateQueries({ queryKey: ['tickets', variables.id] });
+      // Инвалидируем общий список заявок
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
     },
     onError: (error) => {
@@ -66,7 +77,10 @@ export const useTickets = (filters = {}) => {
 
   const assignTicketMutation = useMutation({
     mutationFn: ({ ticketId, agentId }) => ticketsAPI.assign(ticketId, agentId),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
+      // Обновляем кэш конкретной заявки
+      queryClient.invalidateQueries({ queryKey: ['tickets', variables.ticketId] });
+      // Инвалидируем общий список заявок
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
     },
     onError: (error) => {
@@ -76,8 +90,27 @@ export const useTickets = (filters = {}) => {
 
   const selfAssignTicketMutation = useMutation({
     mutationFn: (ticketId) => ticketsAPI.selfAssign(ticketId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tickets'] });
+    onSuccess: (response, variables) => {
+      // Оптимистичное обновление данных в кэше
+      const newTicket = response.data;
+      
+      // Обновляем данные в кэше немедленно, не дожидаясь повторного запроса
+      queryClient.setQueryData(['tickets', variables], newTicket);
+      
+      // Обновляем список всех заявок
+      queryClient.setQueriesData(['tickets'], (oldData) => {
+        if (!oldData) return oldData;
+        
+        // Находим и обновляем заявку в списке
+        const updatedData = Array.isArray(oldData) ? 
+          oldData.map(ticket => ticket.id === variables ? newTicket : ticket) : oldData;
+        
+        return updatedData;
+      });
+      
+      // Немедленно инвалидируем кэши для принудительного обновления
+      queryClient.invalidateQueries({ queryKey: ['tickets', variables], refetchActive: true });
+      queryClient.invalidateQueries({ queryKey: ['tickets'], refetchActive: true });
     },
     onError: (error) => {
       console.error('Error self-assigning ticket:', error);
@@ -86,8 +119,26 @@ export const useTickets = (filters = {}) => {
 
   const updateStatusMutation = useMutation({
     mutationFn: ({ ticketId, status }) => ticketsAPI.updateStatus(ticketId, status),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tickets'] });
+    onSuccess: (response, variables) => {
+      const newTicket = response.data;
+      
+      // Обновляем данные в кэше немедленно
+      queryClient.setQueryData(['tickets', variables.ticketId], newTicket);
+      
+      // Обновляем список всех заявок
+      queryClient.setQueriesData(['tickets'], (oldData) => {
+        if (!oldData) return oldData;
+        
+        // Находим и обновляем заявку в списке
+        const updatedData = Array.isArray(oldData) ? 
+          oldData.map(ticket => ticket.id === variables.ticketId ? newTicket : ticket) : oldData;
+        
+        return updatedData;
+      });
+      
+      // Принудительное обновление с сервера
+      queryClient.invalidateQueries({ queryKey: ['tickets', variables.ticketId], refetchActive: true });
+      queryClient.invalidateQueries({ queryKey: ['tickets'], refetchActive: true });
     },
     onError: (error) => {
       console.error('Error updating ticket status:', error);
@@ -96,11 +147,59 @@ export const useTickets = (filters = {}) => {
 
   const closeTicketMutation = useMutation({
     mutationFn: (ticketId) => ticketsAPI.closeTicket(ticketId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tickets'] });
+    onSuccess: (response, variables) => {
+      const newTicket = response.data;
+      
+      // Обновляем данные в кэше немедленно
+      queryClient.setQueryData(['tickets', variables], newTicket);
+      
+      // Обновляем список всех заявок
+      queryClient.setQueriesData(['tickets'], (oldData) => {
+        if (!oldData) return oldData;
+        
+        // Находим и обновляем заявку в списке
+        const updatedData = Array.isArray(oldData) ? 
+          oldData.map(ticket => ticket.id === variables ? newTicket : ticket) : oldData;
+        
+        return updatedData;
+      });
+      
+      // Принудительное обновление данных с сервера
+      queryClient.invalidateQueries({ queryKey: ['tickets', variables], refetchActive: true });
+      queryClient.invalidateQueries({ queryKey: ['tickets'], refetchActive: true });
     },
     onError: (error) => {
       console.error('Error closing ticket:', error);
+    }
+  });
+
+  // Добавляем мутацию для закрытия заявки с сообщением
+  const closeTicketWithMessageMutation = useMutation({
+    mutationFn: ({ ticketId, message }) => ticketsAPI.closeTicketWithMessage(ticketId, message),
+    onSuccess: (response, variables) => {
+      const newTicket = response.data;
+      
+      // Оптимистично обновляем данные в кэше сразу
+      queryClient.setQueryData(['tickets', variables.ticketId], newTicket);
+      
+      // Обновляем список всех заявок
+      queryClient.setQueriesData(['tickets'], (oldData) => {
+        if (!oldData) return oldData;
+        
+        // Находим и обновляем заявку в списке
+        const updatedData = Array.isArray(oldData) ? 
+          oldData.map(ticket => ticket.id === variables.ticketId ? newTicket : ticket) : oldData;
+        
+        return updatedData;
+      });
+      
+      // Принудительное обновление всех связанных данных
+      queryClient.invalidateQueries({ queryKey: ['tickets', variables.ticketId], refetchActive: true });
+      queryClient.invalidateQueries({ queryKey: ['tickets'], refetchActive: true });
+      queryClient.invalidateQueries({ queryKey: ['messages', variables.ticketId], refetchActive: true });
+    },
+    onError: (error) => {
+      console.error('Error closing ticket with message:', error);
     }
   });
 
@@ -116,6 +215,7 @@ export const useTickets = (filters = {}) => {
     selfAssignTicket: selfAssignTicketMutation.mutate,
     updateStatus: updateStatusMutation.mutate,
     closeTicket: closeTicketMutation.mutate,
+    closeTicketWithMessage: closeTicketWithMessageMutation.mutate,
   };
 };
 
@@ -127,6 +227,12 @@ export const useTicket = (ticketId) => {
     queryFn: () => ticketsAPI.getById(ticketId),
     select: (data) => data.data || null,
     enabled: !!ticketId,
+    // Обновляем настройки кэширования для более быстрого отклика
+    staleTime: 10 * 1000, // 10 секунд вместо 1 минуты
+    cacheTime: 3 * 60 * 1000, // 3 минуты вместо 5
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchInterval: 20 * 1000, // Обновляем каждые 20 секунд
     onError: (error) => {
       console.error(`Error fetching ticket ${ticketId}:`, error);
       return null;
@@ -138,5 +244,43 @@ export const useTicket = (ticketId) => {
     isLoading: ticketQuery.isLoading,
     isError: ticketQuery.isError,
     error: ticketQuery.error,
+  };
+};
+
+// Добавляем новый хук для сообщений заявки
+export const useTicketMessages = (ticketId) => {
+  const queryClient = useQueryClient();
+  
+  const messagesQuery = useQuery({
+    queryKey: ['messages', ticketId],
+    queryFn: () => ticketsAPI.getMessages(ticketId),
+    select: (data) => data.data || [],
+    enabled: !!ticketId,
+    // Настройки кэширования для сообщений
+    staleTime: 30 * 1000, // 30 секунд - сообщения могут обновляться чаще
+    cacheTime: 5 * 60 * 1000, // 5 минут
+    onError: (error) => {
+      console.error(`Error fetching messages for ticket ${ticketId}:`, error);
+      return [];
+    }
+  });
+
+  // Функция для добавления сообщения в кэш
+  const addMessage = (message) => {
+    queryClient.setQueryData(['messages', ticketId], (old) => {
+      if (!old || !old.data) return { data: [message] };
+      return {
+        ...old,
+        data: [...old.data, message]
+      };
+    });
+  };
+
+  return {
+    messages: messagesQuery.data || [],
+    isLoading: messagesQuery.isLoading,
+    isError: messagesQuery.isError,
+    error: messagesQuery.error,
+    addMessage,
   };
 }; 

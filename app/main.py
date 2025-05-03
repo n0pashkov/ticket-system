@@ -8,11 +8,11 @@ from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.api import api_router
-from app.api.endpoints.async_tickets import router as async_tickets_router
 from app.core.config import settings
 from app.core.logging import setup_logging, get_logger
 from app.core.rate_limiter import RateLimitMiddleware
 from app.core.compression import GzipMiddleware
+from app.core.http_cache import HTTPCacheMiddleware
 from app.db.database import engine
 from app.models import models
 
@@ -61,6 +61,18 @@ app.add_middleware(
     GzipMiddleware,
     minimum_size=1000,  # Сжимаем ответы размером от 1000 байт
     compression_level=6  # Средний уровень сжатия (оптимальное соотношение скорости и степени сжатия)
+)
+
+# Добавляем middleware для HTTP-кэширования
+app.add_middleware(
+    HTTPCacheMiddleware,
+    default_max_age=30,  # 30 секунд кэширования по умолчанию (было 60)
+    exclude_paths=[
+        "/api/v1/auth", 
+        "/api/v1/notifications",
+        "/api/v1/users/me",  # Исключаем запросы к профилю пользователя из кэширования
+        "/api/v1/tickets",   # Исключаем все запросы к заявкам
+    ],  
 )
 
 # Middleware для отладки запросов и добавления CORS заголовков
@@ -128,14 +140,8 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     
     return response
 
-# Монтируем директорию testui для обслуживания статических HTML-файлов
-# app.mount("/testui", StaticFiles(directory="testui"), name="testui")
-
 # Подключаем API роутер
 app.include_router(api_router, prefix=settings.API_V1_STR)
-
-# Подключаем асинхронные маршруты
-app.include_router(async_tickets_router, prefix=f"{settings.API_V1_STR}/tickets")
 
 # Запускаем мониторинг ресурсов в фоновом режиме
 from app.core.resource_monitor import resource_monitor

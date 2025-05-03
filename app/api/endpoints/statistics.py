@@ -1,10 +1,10 @@
 from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from sqlalchemy import func, desc, and_
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import func, desc, and_, select
 from datetime import datetime, timedelta
 
-from app.db.database import get_db
+from app.db.async_database import get_async_db
 from app.models.models import Ticket, User, UserRole, TicketStatus
 from app.core.security import get_current_active_user
 from app.core.dependencies import get_current_admin
@@ -17,8 +17,8 @@ logger = get_logger("api.statistics")
 
 @router.get("/tickets-summary", response_model=Dict[str, Any])
 @cache_result(prefix="stats", ttl=600)  # Кэшируем на 10 минут
-def get_tickets_summary(
-    db: Session = Depends(get_db),
+async def get_tickets_summary(
+    db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_admin)
 ):
     """
@@ -27,27 +27,35 @@ def get_tickets_summary(
     logger.debug("Выполняется запрос статистики по заявкам")
     
     # Общее количество заявок
-    total_tickets = db.query(func.count(Ticket.id)).scalar()
+    query = select(func.count(Ticket.id))
+    result = await db.execute(query)
+    total_tickets = result.scalar()
     
     # Количество заявок по статусам
-    status_counts = db.query(
+    query = select(
         Ticket.status, 
         func.count(Ticket.id)
-    ).group_by(Ticket.status).all()
+    ).group_by(Ticket.status)
+    result = await db.execute(query)
+    status_counts = result.all()
     
     # Количество заявок по приоритетам
-    priority_counts = db.query(
+    query = select(
         Ticket.priority, 
         func.count(Ticket.id)
-    ).group_by(Ticket.priority).all()
+    ).group_by(Ticket.priority)
+    result = await db.execute(query)
+    priority_counts = result.all()
     
     # Среднее время обработки заявок (для завершенных)
-    avg_resolution_time = db.query(
+    query = select(
         func.avg(Ticket.updated_at - Ticket.created_at)
-    ).filter(Ticket.status == TicketStatus.CLOSED).scalar()
+    ).filter(Ticket.status == TicketStatus.CLOSED)
+    result = await db.execute(query)
+    avg_resolution_time = result.scalar()
     
     # Формируем результат
-    result = {
+    summary_result = {
         "total_tickets": total_tickets,
         "status_distribution": {status: count for status, count in status_counts},
         "priority_distribution": {priority: count for priority, count in priority_counts},
@@ -55,14 +63,14 @@ def get_tickets_summary(
     }
     
     logger.debug(f"Результаты статистики по заявкам: {len(status_counts)} статусов, {len(priority_counts)} приоритетов")
-    return result
+    return summary_result
 
 
 @router.get("/agent-performance", response_model=List[Dict[str, Any]])
 @cache_result(prefix="stats", ttl=1800)  # Кэшируем на 30 минут
-def get_agent_performance(
+async def get_agent_performance(
     days: int = 30,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_admin)
 ):
     """
@@ -74,31 +82,36 @@ def get_agent_performance(
     period_start = datetime.now() - timedelta(days=days)
     
     # Получаем всех агентов
-    agents = db.query(User).filter(User.role == UserRole.AGENT).all()
+    query = select(User).filter(User.role == UserRole.AGENT)
+    result = await db.execute(query)
+    agents = result.scalars().all()
     
-    result = []
+    performance_result = []
     for agent in agents:
         # Количество заявок, назначенных агенту
-        assigned_count = db.query(func.count(Ticket.id))\
+        query = select(func.count(Ticket.id))\
             .filter(Ticket.assigned_to_id == agent.id)\
-            .filter(Ticket.created_at >= period_start)\
-            .scalar()
+            .filter(Ticket.created_at >= period_start)
+        assigned_result = await db.execute(query)
+        assigned_count = assigned_result.scalar()
         
         # Количество решенных заявок
-        resolved_count = db.query(func.count(Ticket.id))\
+        query = select(func.count(Ticket.id))\
             .filter(Ticket.assigned_to_id == agent.id)\
             .filter(Ticket.status == TicketStatus.CLOSED)\
-            .filter(Ticket.updated_at >= period_start)\
-            .scalar()
+            .filter(Ticket.updated_at >= period_start)
+        resolved_result = await db.execute(query)
+        resolved_count = resolved_result.scalar()
         
         # Среднее время решения
-        avg_time = db.query(func.avg(Ticket.updated_at - Ticket.created_at))\
+        query = select(func.avg(Ticket.updated_at - Ticket.created_at))\
             .filter(Ticket.assigned_to_id == agent.id)\
             .filter(Ticket.status == TicketStatus.CLOSED)\
-            .filter(Ticket.updated_at >= period_start)\
-            .scalar()
+            .filter(Ticket.updated_at >= period_start)
+        avg_result = await db.execute(query)
+        avg_time = avg_result.scalar()
         
-        result.append({
+        performance_result.append({
             "agent_id": agent.id,
             "agent_name": agent.full_name,
             "assigned_tickets": assigned_count,
@@ -108,14 +121,14 @@ def get_agent_performance(
         })
     
     logger.debug(f"Получена статистика по {len(agents)} агентам")
-    return result
+    return performance_result
 
 
 @router.get("/tickets-by-period", response_model=Dict[str, Any])
 @cache_result(prefix="stats", ttl=900)  # Кэшируем на 15 минут
-def get_tickets_by_period(
+async def get_tickets_by_period(
     period: str = "month",  # day, week, month, year
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_admin)
 ):
     """
@@ -135,23 +148,26 @@ def get_tickets_by_period(
         period_start = now - timedelta(days=30)
     
     # Количество новых заявок
-    new_tickets = db.query(func.count(Ticket.id))\
-        .filter(Ticket.created_at >= period_start)\
-        .scalar()
+    query = select(func.count(Ticket.id))\
+        .filter(Ticket.created_at >= period_start)
+    result = await db.execute(query)
+    new_tickets = result.scalar()
     
     # Количество решенных заявок
-    resolved_tickets = db.query(func.count(Ticket.id))\
+    query = select(func.count(Ticket.id))\
         .filter(Ticket.status == TicketStatus.CLOSED)\
-        .filter(Ticket.updated_at >= period_start)\
-        .scalar()
+        .filter(Ticket.updated_at >= period_start)
+    result = await db.execute(query)
+    resolved_tickets = result.scalar()
     
     # Количество заявок в работе
-    in_progress_tickets = db.query(func.count(Ticket.id))\
+    query = select(func.count(Ticket.id))\
         .filter(Ticket.status == TicketStatus.IN_PROGRESS)\
-        .filter(Ticket.updated_at >= period_start)\
-        .scalar()
+        .filter(Ticket.updated_at >= period_start)
+    result = await db.execute(query)
+    in_progress_tickets = result.scalar()
     
-    result = {
+    period_result = {
         "period": period,
         "new_tickets": new_tickets,
         "resolved_tickets": resolved_tickets,
@@ -160,14 +176,14 @@ def get_tickets_by_period(
     }
     
     logger.debug(f"Статистика по заявкам за период {period}: {new_tickets} новых, {resolved_tickets} решенных")
-    return result
+    return period_result
 
 
 @router.get("/user-activity", response_model=Dict[str, List[Dict[str, Any]]])
 @cache_result(prefix="stats", ttl=1200)  # Кэшируем на 20 минут
-def get_user_activity(
+async def get_user_activity(
     top: int = 10,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_admin)
 ):
     """
@@ -176,7 +192,7 @@ def get_user_activity(
     logger.debug(f"Запрос статистики активности пользователей (top {top})")
     
     # Пользователи с наибольшим количеством заявок
-    users_with_most_tickets = db.query(
+    query = select(
         User.id,
         User.username,
         User.full_name,
@@ -184,10 +200,12 @@ def get_user_activity(
     ).join(Ticket, User.id == Ticket.creator_id)\
      .group_by(User.id)\
      .order_by(desc("ticket_count"))\
-     .limit(top)\
-     .all()
+     .limit(top)
     
-    result = {
+    result = await db.execute(query)
+    users_with_most_tickets = result.all()
+    
+    activity_result = {
         "most_active_by_tickets": [
             {
                 "user_id": user_id,
@@ -199,4 +217,4 @@ def get_user_activity(
     }
     
     logger.debug(f"Получена статистика по {len(users_with_most_tickets)} самым активным пользователям")
-    return result 
+    return activity_result 

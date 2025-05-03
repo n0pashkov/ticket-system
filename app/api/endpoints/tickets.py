@@ -1,17 +1,20 @@
 from typing import List, Optional
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status as http_status, Query
+from fastapi import APIRouter, Depends, HTTPException, status as http_status, Query, Response
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import SQLAlchemyError
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 
 from app.core.security import get_current_active_user
 from app.core.dependencies import get_current_agent_or_admin
 from app.core.logging import get_logger
 from app.db.database import get_db
-from app.models.models import Ticket, User, UserRole, TicketStatus, TicketMessage
+from app.models.models import Ticket, User, UserRole, TicketStatus, TicketMessage, TicketCategory
 from app.schemas.schemas import Ticket as TicketSchema
 from app.schemas.schemas import TicketCreate, TicketUpdate, TicketCloseWithMessage, TicketMessage as TicketMessageSchema
+from app.schemas.schemas import TicketCategory as TicketCategorySchema
 
 router = APIRouter()
 logger = get_logger("api.tickets")
@@ -296,36 +299,6 @@ def close_ticket(
     return db_ticket
 
 
-@router.delete("/{ticket_id}", status_code=http_status.HTTP_204_NO_CONTENT)
-def delete_ticket(
-    ticket_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
-):
-    # Получаем заявку из БД
-    db_ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
-    if not db_ticket:
-        raise HTTPException(status_code=404, detail="Заявка не найдена")
-    
-    # Проверка прав на удаление заявки
-    if current_user.role == UserRole.ADMIN:
-        # Админ может удалить любую заявку полностью
-        db.delete(db_ticket)
-    elif current_user.role == UserRole.USER and db_ticket.creator_id == current_user.id:
-        # Пользователь может только скрыть свою заявку (мягкое удаление)
-        db_ticket.is_hidden_for_creator = True
-        db.commit()
-    else:
-        # Агенты и другие пользователи не могут удалять заявки
-        raise HTTPException(
-            status_code=http_status.HTTP_403_FORBIDDEN,
-            detail="Нет прав для удаления данной заявки"
-        )
-    
-    db.commit()
-    return None
-
-
 # Закрытие заявки с сообщением (для агентов)
 @router.post("/{ticket_id}/close-with-message", response_model=TicketSchema)
 def close_ticket_with_message(
@@ -415,4 +388,58 @@ def get_ticket_messages_count(
     
     # Получаем количество сообщений
     count = db.query(TicketMessage).filter(TicketMessage.ticket_id == ticket_id).count()
-    return {"count": count} 
+    return {"count": count}
+
+@router.get("/categories", response_model=List[TicketCategorySchema])
+def read_ticket_categories(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Получение списка категорий заявок.
+    Данные кэшируются на стороне клиента на 10 минут.
+    """
+    categories = db.query(TicketCategory).offset(skip).limit(limit).all()
+    
+    # Преобразуем объекты в JSON-совместимый формат
+    data = jsonable_encoder(categories)
+    
+    # Создаем JSON ответ
+    response = JSONResponse(content=data)
+    
+    # Добавляем заголовки для кэширования этого редко меняющегося ресурса
+    response.headers["Cache-Control"] = "public, max-age=600, stale-while-revalidate=60"  # 10 минут
+    response.headers["Vary"] = "Accept"
+    
+    return response
+
+@router.delete("/{ticket_id}", status_code=http_status.HTTP_204_NO_CONTENT)
+def delete_ticket(
+    ticket_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    # Получаем заявку из БД
+    db_ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if not db_ticket:
+        raise HTTPException(status_code=404, detail="Заявка не найдена")
+    
+    # Проверка прав на удаление заявки
+    if current_user.role == UserRole.ADMIN:
+        # Админ может удалить любую заявку полностью
+        db.delete(db_ticket)
+    elif current_user.role == UserRole.USER and db_ticket.creator_id == current_user.id:
+        # Пользователь может только скрыть свою заявку (мягкое удаление)
+        db_ticket.is_hidden_for_creator = True
+        db.commit()
+    else:
+        # Агенты и другие пользователи не могут удалять заявки
+        raise HTTPException(
+            status_code=http_status.HTTP_403_FORBIDDEN,
+            detail="Нет прав для удаления данной заявки"
+        )
+    
+    db.commit()
+    return None 

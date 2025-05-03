@@ -1,11 +1,12 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, update, delete
 from pydantic import BaseModel
 
 from app.core.security import get_password_hash, get_current_active_user, verify_password
 from app.core.dependencies import get_current_admin
-from app.db.database import get_db
+from app.db.async_database import get_async_db
 from app.models.models import User, UserRole
 from app.schemas.schemas import User as UserSchema
 from app.schemas.schemas import UserCreate, UserUpdate, UserMe
@@ -20,14 +21,17 @@ class PasswordChange(BaseModel):
 
 # Регистрация нового пользователя (доступно только администраторам)
 @router.post("/", response_model=UserSchema, status_code=status.HTTP_201_CREATED)
-def create_user(
+async def create_user(
     user: UserCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_admin)
 ):
     # Проверяем, существует ли пользователь с таким email
     if user.email:
-        db_user_email = db.query(User).filter(User.email == user.email).first()
+        query = select(User).filter(User.email == user.email)
+        result = await db.execute(query)
+        db_user_email = result.scalar_one_or_none()
+        
         if db_user_email:
             raise HTTPException(
                 status_code=400,
@@ -35,7 +39,10 @@ def create_user(
             )
     
     # Проверяем, существует ли пользователь с таким username
-    db_user_username = db.query(User).filter(User.username == user.username).first()
+    query = select(User).filter(User.username == user.username)
+    result = await db.execute(query)
+    db_user_username = result.scalar_one_or_none()
+    
     if db_user_username:
         raise HTTPException(
             status_code=400,
@@ -52,30 +59,34 @@ def create_user(
         role=user.role
     )
     db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
+    await db.commit()
+    await db.refresh(db_user)
     return db_user
 
 
 # Получение списка всех пользователей (только для администраторов)
 @router.get("/", response_model=List[UserSchema])
-def read_users(
+async def read_users(
     skip: int = 0,
     limit: int = 100,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_admin)
 ):
-    users = db.query(User).offset(skip).limit(limit).all()
+    query = select(User).offset(skip).limit(limit)
+    result = await db.execute(query)
+    users = result.scalars().all()
     return users
 
 
 # Получение базовой информации о всех пользователях (доступно всем авторизованным пользователям)
 @router.get("/basic", response_model=List[dict])
-def read_users_basic(
-    db: Session = Depends(get_db),
+async def read_users_basic(
+    db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    users = db.query(User.id, User.full_name, User.username, User.role).all()
+    query = select(User.id, User.full_name, User.username, User.role)
+    result = await db.execute(query)
+    users = result.all()
     return [{"id": user.id, "full_name": user.full_name, "username": user.username, "role": user.role} for user in users]
 
 
@@ -87,9 +98,9 @@ async def read_user_me(current_user: User = Depends(get_current_active_user)):
 
 # Смена пароля текущим пользователем
 @router.post("/me/change-password", status_code=status.HTTP_200_OK)
-def change_password(
+async def change_password(
     password_data: PasswordChange,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user)
 ):
     """
@@ -112,18 +123,20 @@ def change_password(
     
     # Хешируем и сохраняем новый пароль
     hashed_password = get_password_hash(password_data.new_password)
-    current_user.hashed_password = hashed_password
     
-    db.commit()
+    # Используем update вместо прямого изменения объекта
+    query = update(User).where(User.id == current_user.id).values(hashed_password=hashed_password)
+    await db.execute(query)
+    await db.commit()
     
     return {"message": "Пароль успешно изменен"}
 
 
 # Получение информации о пользователе по ID
 @router.get("/{user_id}", response_model=UserSchema)
-def read_user(
+async def read_user(
     user_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user)
 ):
     """
@@ -137,7 +150,10 @@ def read_user(
             detail="Нет прав для просмотра данного пользователя"
         )
     
-    user = db.query(User).filter(User.id == user_id).first()
+    query = select(User).filter(User.id == user_id)
+    result = await db.execute(query)
+    user = result.scalar_one_or_none()
+    
     if user is None:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
     return user
@@ -145,10 +161,10 @@ def read_user(
 
 # Обновление пользователя
 @router.put("/{user_id}", response_model=UserSchema)
-def update_user(
+async def update_user(
     user_id: int,
     user: UserUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user)
 ):
     """
@@ -162,7 +178,11 @@ def update_user(
             detail="Нет прав для обновления данного пользователя"
         )
     
-    db_user = db.query(User).filter(User.id == user_id).first()
+    # Сначала получаем пользователя, чтобы проверить его существование
+    query = select(User).filter(User.id == user_id)
+    result = await db.execute(query)
+    db_user = result.scalar_one_or_none()
+    
     if db_user is None:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
     
@@ -173,22 +193,31 @@ def update_user(
     if "password" in user_data:
         user_data["hashed_password"] = get_password_hash(user_data.pop("password"))
     
-    for key, value in user_data.items():
-        setattr(db_user, key, value)
+    # Выполняем обновление
+    query = update(User).where(User.id == user_id).values(**user_data)
+    await db.execute(query)
+    await db.commit()
     
-    db.commit()
-    db.refresh(db_user)
-    return db_user
+    # Получаем обновленного пользователя
+    query = select(User).filter(User.id == user_id)
+    result = await db.execute(query)
+    updated_user = result.scalar_one()
+    
+    return updated_user
 
 
 # Удаление пользователя (только для администраторов)
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def deactivate_user(
+async def deactivate_user(
     user_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_admin)
 ):
-    db_user = db.query(User).filter(User.id == user_id).first()
+    # Сначала получаем пользователя, чтобы проверить его существование
+    query = select(User).filter(User.id == user_id)
+    result = await db.execute(query)
+    db_user = result.scalar_one_or_none()
+    
     if db_user is None:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
     
@@ -199,7 +228,9 @@ def deactivate_user(
             detail="Нельзя удалить собственный аккаунт"
         )
     
-    # Удаляем пользователя полностью
-    db.delete(db_user)
-    db.commit()
+    # Удаляем пользователя
+    query = delete(User).where(User.id == user_id)
+    await db.execute(query)
+    await db.commit()
+    
     return None 

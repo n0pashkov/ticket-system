@@ -1,4 +1,5 @@
 import time
+import asyncio
 from typing import Dict, Any, Optional, Callable, TypeVar, Generic
 from threading import RLock
 from functools import wraps
@@ -102,7 +103,8 @@ global_cache = Cache(ttl=300)
 
 def cache_result(prefix: str = "", ttl: Optional[int] = None):
     """
-    Декоратор для кэширования результатов функций
+    Декоратор для кэширования результатов функций с поддержкой как синхронных,
+    так и асинхронных функций.
     
     Args:
         prefix: Префикс для кэш-ключа
@@ -110,7 +112,43 @@ def cache_result(prefix: str = "", ttl: Optional[int] = None):
     """
     def decorator(func):
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        async def async_wrapper(*args, **kwargs):
+            # Создаем ключ на основе аргументов функции
+            key_parts = [prefix, func.__name__]
+            
+            # Добавляем аргументы в ключ
+            for arg in args:
+                key_parts.append(str(arg))
+            
+            # Добавляем именованные аргументы в ключ, сортируем для стабильности
+            for k in sorted(kwargs.keys()):
+                key_parts.append(f"{k}={kwargs[k]}")
+            
+            # Формируем финальный ключ
+            cache_key = ":".join(key_parts)
+            
+            # Пытаемся получить результат из кэша
+            result = global_cache.get(cache_key)
+            if result is not None:
+                return result
+            
+            # Если кэш промах, вызываем оригинальную функцию
+            result = await func(*args, **kwargs)
+            
+            # Сохраняем результат в кэше
+            if ttl is not None:
+                # Временно изменяем TTL для этого ключа
+                old_ttl = global_cache.ttl
+                global_cache.ttl = ttl
+                global_cache.set(cache_key, result)
+                global_cache.ttl = old_ttl
+            else:
+                global_cache.set(cache_key, result)
+                
+            return result
+            
+        @wraps(func)
+        def sync_wrapper(*args, **kwargs):
             # Создаем ключ на основе аргументов функции
             key_parts = [prefix, func.__name__]
             
@@ -144,5 +182,11 @@ def cache_result(prefix: str = "", ttl: Optional[int] = None):
                 global_cache.set(cache_key, result)
                 
             return result
-        return wrapper
+            
+        # Выбираем нужный враппер в зависимости от типа функции
+        if asyncio.iscoroutinefunction(func):
+            return async_wrapper
+        else:
+            return sync_wrapper
+            
     return decorator 

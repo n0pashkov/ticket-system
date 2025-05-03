@@ -1,70 +1,113 @@
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from sqlalchemy import func
+from typing import List
+from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, update
+from fastapi.encoders import jsonable_encoder
+from pydantic import BaseModel
 
-from app.db.database import get_db
-from app.models.models import TicketCategory, User, UserRole
-from app.schemas.schemas import TicketCategory as TicketCategorySchema
-from app.schemas.schemas import TicketCategoryCreate, TicketCategoryUpdate
 from app.core.security import get_current_active_user
 from app.core.dependencies import get_current_admin
+from app.core.logging import get_logger
+from app.db.async_database import get_async_db
+from app.models.models import TicketCategory, User
+from app.schemas.schemas import TicketCategory as TicketCategorySchema
+
+# Создаем модель для создания категории
+class CategoryCreate(BaseModel):
+    name: str
+    description: str = None
+    is_active: bool = True
+
+# Модель для обновления категории
+class CategoryUpdate(BaseModel):
+    name: str = None
+    description: str = None
+    is_active: bool = None
 
 router = APIRouter()
+logger = get_logger("api.categories")
 
 
-# Получение списка всех категорий
 @router.get("/", response_model=List[TicketCategorySchema])
-def read_categories(
+async def read_categories(
     skip: int = 0,
     limit: int = 100,
-    only_active: bool = True,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user)
 ):
     """
-    Получить список всех категорий заявок.
+    Получение списка категорий заявок.
+    Данные кэшируются на стороне клиента на 1 час.
     """
-    query = db.query(TicketCategory)
+    logger.debug("Getting categories list")
     
-    # Фильтруем только активные категории, если установлен флаг
-    if only_active:
-        query = query.filter(TicketCategory.is_active == True)
+    # Используем SQLAlchemy select и асинхронное выполнение
+    query = select(TicketCategory).filter(TicketCategory.is_active == True).offset(skip).limit(limit)
+    result = await db.execute(query)
+    categories = result.scalars().all()
     
-    categories = query.offset(skip).limit(limit).all()
-    return categories
+    # Преобразуем объекты в JSON-совместимый формат
+    data = jsonable_encoder(categories)
+    
+    # Создаем JSON ответ
+    response = JSONResponse(content=data)
+    
+    # Добавляем заголовки для кэширования этого редко меняющегося ресурса
+    response.headers["Cache-Control"] = "public, max-age=3600, stale-while-revalidate=120"  # 1 час
+    response.headers["Vary"] = "Accept"
+    
+    return response
 
 
-# Получение конкретной категории по ID
 @router.get("/{category_id}", response_model=TicketCategorySchema)
-def read_category(
+async def read_category(
     category_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user)
 ):
     """
-    Получить категорию заявки по ID.
+    Получение категории заявки по ID.
+    Данные кэшируются на стороне клиента на 1 час.
     """
-    category = db.query(TicketCategory).filter(TicketCategory.id == category_id).first()
-    if category is None:
+    logger.debug(f"Getting category by ID: {category_id}")
+    
+    # Используем SQLAlchemy select и асинхронное выполнение
+    query = select(TicketCategory).filter(TicketCategory.id == category_id)
+    result = await db.execute(query)
+    category = result.scalar_one_or_none()
+    
+    if not category:
         raise HTTPException(status_code=404, detail="Категория не найдена")
-    return category
+    
+    # Преобразуем объект в JSON-совместимый формат
+    data = jsonable_encoder(category)
+    
+    # Создаем JSON ответ
+    response = JSONResponse(content=data)
+    
+    # Добавляем заголовки для кэширования этого редко меняющегося ресурса
+    response.headers["Cache-Control"] = "public, max-age=3600, stale-while-revalidate=120"  # 1 час
+    response.headers["Vary"] = "Accept"
+    
+    return response
 
 
-# Создание новой категории (только для администраторов)
 @router.post("/", response_model=TicketCategorySchema, status_code=status.HTTP_201_CREATED)
-def create_category(
-    category: TicketCategoryCreate,
-    db: Session = Depends(get_db),
+async def create_category(
+    category_data: CategoryCreate,
+    db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_admin)
 ):
     """
-    Создать новую категорию заявок (только для администраторов).
+    Создание новой категории заявок (только для администраторов).
     """
+    logger.debug(f"Creating new category: {category_data.name}")
+    
     # Проверяем, существует ли категория с таким именем
-    existing_category = db.query(TicketCategory).filter(
-        func.lower(TicketCategory.name) == func.lower(category.name)
-    ).first()
+    query = select(TicketCategory).filter(TicketCategory.name == category_data.name)
+    result = await db.execute(query)
+    existing_category = result.scalar_one_or_none()
     
     if existing_category:
         raise HTTPException(
@@ -73,81 +116,62 @@ def create_category(
         )
     
     # Создаем новую категорию
-    db_category = TicketCategory(
-        name=category.name,
-        description=category.description,
-        is_active=category.is_active
+    category = TicketCategory(
+        name=category_data.name, 
+        description=category_data.description,
+        is_active=category_data.is_active
     )
+    db.add(category)
+    await db.commit()
+    await db.refresh(category)
     
-    db.add(db_category)
-    db.commit()
-    db.refresh(db_category)
-    
-    return db_category
+    logger.info(f"Category created: {category_data.name} (ID: {category.id})")
+    return category
 
 
-# Обновление категории (только для администраторов)
 @router.put("/{category_id}", response_model=TicketCategorySchema)
-def update_category(
+async def update_category(
     category_id: int,
-    category_update: TicketCategoryUpdate,
-    db: Session = Depends(get_db),
+    category_data: CategoryUpdate,
+    db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_admin)
 ):
     """
-    Обновить существующую категорию заявок (только для администраторов).
+    Обновление категории заявок (только для администраторов).
     """
-    # Получаем категорию из БД
-    db_category = db.query(TicketCategory).filter(TicketCategory.id == category_id).first()
-    if not db_category:
+    logger.debug(f"Updating category ID: {category_id}")
+    
+    # Получаем категорию
+    query = select(TicketCategory).filter(TicketCategory.id == category_id)
+    result = await db.execute(query)
+    category = result.scalar_one_or_none()
+    
+    if not category:
         raise HTTPException(status_code=404, detail="Категория не найдена")
     
-    # Если обновляется имя, проверяем, что нет дубликатов
-    if category_update.name is not None and db_category.name != category_update.name:
-        existing_category = db.query(TicketCategory).filter(
-            func.lower(TicketCategory.name) == func.lower(category_update.name)
-        ).first()
-        
-        if existing_category:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Категория с таким именем уже существует"
-            )
+    # Обновляем поля
+    if category_data.name is not None:
+        # Проверяем уникальность имени, если оно отличается от текущего
+        if category_data.name != category.name:
+            query = select(TicketCategory).filter(TicketCategory.name == category_data.name)
+            result = await db.execute(query)
+            existing_category = result.scalar_one_or_none()
+            
+            if existing_category:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Категория с таким именем уже существует"
+                )
+        category.name = category_data.name
     
-    # Обновляем поля категории
-    update_data = category_update.model_dump(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(db_category, key, value)
+    if category_data.description is not None:
+        category.description = category_data.description
     
-    db.commit()
-    db.refresh(db_category)
+    if category_data.is_active is not None:
+        category.is_active = category_data.is_active
     
-    return db_category
-
-
-# Удаление категории (только для администраторов)
-@router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_category(
-    category_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin)
-):
-    """
-    Удалить категорию заявок (только для администраторов).
-    """
-    # Получаем категорию из БД
-    db_category = db.query(TicketCategory).filter(TicketCategory.id == category_id).first()
-    if not db_category:
-        raise HTTPException(status_code=404, detail="Категория не найдена")
+    await db.commit()
+    await db.refresh(category)
     
-    # Проверяем, есть ли связанные заявки
-    if db_category.tickets:
-        # Делаем категорию неактивной вместо удаления
-        db_category.is_active = False
-        db.commit()
-    else:
-        # Если нет связанных заявок, удаляем категорию
-        db.delete(db_category)
-        db.commit()
-    
-    return None 
+    logger.info(f"Category updated: {category.name} (ID: {category.id})")
+    return category 

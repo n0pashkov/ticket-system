@@ -9,6 +9,13 @@ export const useCategories = (params = {}) => {
     queryKey: ['categories', params],
     queryFn: () => categoriesAPI.getAll(params),
     select: (data) => data.data || [],
+    // Обновляем настройки кэширования для соответствия серверному кэшу
+    staleTime: 60 * 60 * 1000, // 1 час, соответствует Cache-Control max-age=3600
+    cacheTime: 2 * 60 * 60 * 1000, // 2 часа
+    // Отключаем автоматические перезапросы для стабильных данных
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     onError: (error) => {
       console.error('Error fetching categories:', error);
       return [];
@@ -19,6 +26,7 @@ export const useCategories = (params = {}) => {
   const createCategoryMutation = useMutation({
     mutationFn: categoriesAPI.create,
     onSuccess: () => {
+      // Инвалидируем кэши после успешного создания
       queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
     onError: (error) => {
@@ -29,7 +37,13 @@ export const useCategories = (params = {}) => {
   // Мутация для обновления категории
   const updateCategoryMutation = useMutation({
     mutationFn: ({ id, data }) => categoriesAPI.update(id, data),
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
+      // Обновляем кэш конкретной категории после обновления
+      queryClient.setQueryData(['categories', variables.id], (oldData) => ({
+        ...oldData,
+        data: variables.data
+      }));
+      // Инвалидируем общий список категорий
       queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
     onError: (error) => {
@@ -41,6 +55,7 @@ export const useCategories = (params = {}) => {
   const deleteCategoryMutation = useMutation({
     mutationFn: categoriesAPI.delete,
     onSuccess: () => {
+      // Инвалидируем кэши после успешного удаления
       queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
     onError: (error) => {
@@ -56,6 +71,32 @@ export const useCategories = (params = {}) => {
     createCategory: createCategoryMutation.mutate,
     updateCategory: updateCategoryMutation.mutate,
     deleteCategory: deleteCategoryMutation.mutate,
+  };
+};
+
+export const useCategory = (categoryId) => {
+  const queryClient = useQueryClient();
+
+  // Запрос для получения конкретной категории по ID
+  const categoryQuery = useQuery({
+    queryKey: ['categories', categoryId],
+    queryFn: () => categoriesAPI.getById(categoryId),
+    select: (data) => data.data,
+    enabled: !!categoryId,
+    // Используем долгое кэширование для отдельных категорий
+    staleTime: 60 * 60 * 1000, // 1 час
+    cacheTime: 2 * 60 * 60 * 1000, // 2 часа
+    // Отключаем автоматические перезапросы для стабильных данных
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+
+  return {
+    category: categoryQuery.data,
+    isLoading: categoryQuery.isLoading,
+    isError: categoryQuery.isError,
+    error: categoryQuery.error,
   };
 };
 

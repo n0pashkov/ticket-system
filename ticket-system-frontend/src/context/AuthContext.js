@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { usersAPI, authAPI } from '../api/api';
+import { usersAPI, authAPI, clearAuthData } from '../api/api';
 
 const AuthContext = createContext();
 
@@ -26,7 +26,7 @@ export const AuthProvider = ({ children }) => {
           // Проверяем статус ошибки
           if (err.response && (err.response.status === 401 || err.response.status === 403)) {
             console.error('Authentication token expired or invalid');
-            localStorage.removeItem('token');
+            clearAuthData(); // Очистка токена и кэша
             setError('Необходимо войти в систему заново');
           } else {
             // Другие ошибки API
@@ -68,6 +68,10 @@ export const AuthProvider = ({ children }) => {
         console.log('User data received:', userResponse.data);
         setUser(userResponse.data);
         setLoading(false);
+        
+        // Перезагружаем страницу, чтобы гарантировать чистое состояние
+        window.location.href = '/';
+        
         return { success: true };
       } catch (userErr) {
         console.error('Error fetching user data:', userErr);
@@ -134,8 +138,12 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('token');
+    // Используем функцию для очистки токена и кэша
+    clearAuthData();
     setError(null);
+    
+    // Перезагружаем страницу для полной очистки состояния
+    window.location.href = '/login';
   };
 
   return (

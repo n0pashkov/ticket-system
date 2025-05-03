@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.endpoints import auth, users, tickets, statistics, notifications, attachments, equipment, categories, monitoring
+from app.api.endpoints import auth, users, tickets, statistics, equipment, categories, monitoring
 from app.core.logging import get_logger
 
 logger = get_logger("api")
@@ -23,14 +23,6 @@ api_router.include_router(tickets.router, prefix="/tickets", tags=["tickets"])
 # Подключаем эндпоинты для статистики и отчетности
 logger.debug("Registering statistics router")
 api_router.include_router(statistics.router, prefix="/statistics", tags=["statistics"])
-
-# Подключаем эндпоинты для уведомлений
-logger.debug("Registering notifications router")
-api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
-
-# Подключаем эндпоинты для вложений
-logger.debug("Registering attachments router")
-api_router.include_router(attachments.router, prefix="/attachments", tags=["attachments"])
 
 # Подключаем эндпоинты для оборудования
 logger.debug("Registering equipment router")
