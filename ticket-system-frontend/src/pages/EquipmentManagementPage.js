@@ -5,7 +5,7 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, 
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
   FormControl, InputLabel, Select, MenuItem, Chip, Tabs, Tab, Divider,
-  Switch, FormControlLabel, Tooltip
+  Switch, FormControlLabel, Tooltip, Stepper, Step, StepLabel
 } from '@mui/material';
 import {
   Add as AddIcon, Search as SearchIcon, Edit as EditIcon,
@@ -13,7 +13,8 @@ import {
   Computer as ComputerIcon, Print as PrinterIcon,
   Monitor as MonitorIcon, Bookmark as BookmarkIcon,
   LocationOn as LocationIcon, FilterList as FilterListIcon,
-  Refresh as RefreshIcon
+  Refresh as RefreshIcon, ArrowBack as ArrowBackIcon,
+  ArrowForward as ArrowForwardIcon, Check as CheckIcon
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { useEquipment } from '../hooks/useEquipment';
@@ -42,6 +43,7 @@ const EquipmentManagementPage = () => {
   const [currentEquipment, setCurrentEquipment] = useState(null);
   const [tabValue, setTabValue] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [activeStep, setActiveStep] = useState(0);
   
   // Состояние формы
   const [formData, setFormData] = useState({
@@ -142,6 +144,28 @@ const EquipmentManagementPage = () => {
     }
   };
   
+  // Обработчики шагов для Stepper
+  const handleNext = () => {
+    setActiveStep((prevActiveStep) => prevActiveStep + 1);
+  };
+
+  const handleBack = () => {
+    setActiveStep((prevActiveStep) => prevActiveStep - 1);
+  };
+
+  const handleReset = () => {
+    setActiveStep(0);
+  };
+
+  // Добавляем для сброса шага при открытии/закрытии диалога
+  const handleDialogClose = () => {
+    setOpenDialog(false);
+    setActiveStep(0);
+  };
+  
+  // Шаги для заполнения формы
+  const steps = ['Основная информация', 'Технические детали', 'Размещение'];
+  
   // Открытие диалога добавления
   const handleAddClick = () => {
     setFormData({
@@ -158,6 +182,7 @@ const EquipmentManagementPage = () => {
     });
     setDialogMode('add');
     setOpenDialog(true);
+    setActiveStep(0);
   };
   
   // Открытие диалога редактирования
@@ -181,6 +206,7 @@ const EquipmentManagementPage = () => {
     });
     setDialogMode('edit');
     setOpenDialog(true);
+    setActiveStep(0);
   };
   
   // Сохранение оборудования
@@ -193,17 +219,13 @@ const EquipmentManagementPage = () => {
         const category = getCategoryById(Number(dataToSend.category_id));
         if (category) {
           dataToSend.category = category.name;
-          // Можно также установить тип для согласованности на фронтенде
           dataToSend.type = category.name;
         }
-        // Удаляем category_id, так как бэкенд его не поддерживает
         delete dataToSend.category_id;
       }
       
       if (dialogMode === 'add') {
-        // Логика добавления нового оборудования
         await createEquipment(dataToSend);
-        // Обязательно явно запрашиваем обновление данных с сервера
         await refetchEquipment();
         
         setSnackbar({
@@ -212,9 +234,7 @@ const EquipmentManagementPage = () => {
           severity: 'success'
         });
       } else {
-        // Логика обновления оборудования
         await updateEquipment({ id: currentEquipment.id, data: dataToSend });
-        // Обязательно явно запрашиваем обновление данных с сервера
         await refetchEquipment();
         
         setSnackbar({
@@ -224,8 +244,7 @@ const EquipmentManagementPage = () => {
         });
       }
       
-      // Закрываем диалог
-      setOpenDialog(false);
+      handleDialogClose();
     } catch (error) {
       console.error('Ошибка при сохранении оборудования:', error);
       setSnackbar({
@@ -874,7 +893,7 @@ const EquipmentManagementPage = () => {
       {/* Диалог добавления/редактирования оборудования */}
       <Dialog 
         open={openDialog} 
-        onClose={() => setOpenDialog(false)}
+        onClose={handleDialogClose}
         fullWidth
         maxWidth="md"
         PaperProps={{
@@ -905,283 +924,298 @@ const EquipmentManagementPage = () => {
           }
           {dialogMode === 'add' ? 'Добавить оборудование' : 'Редактировать оборудование'}
         </DialogTitle>
-        <DialogContent sx={{ px: { xs: 2, sm: 3 }, py: { xs: 2, sm: 2.5 } }}>
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              Заполните информацию об оборудовании
-            </Typography>
-          </Box>
+        
+        <Box sx={{ px: { xs: 2, sm: 3 }, pt: 2 }}>
+          <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: 3 }}>
+            {steps.map((label) => (
+              <Step key={label}>
+                <StepLabel>{label}</StepLabel>
+              </Step>
+            ))}
+          </Stepper>
+        </Box>
+        
+        <DialogContent sx={{ px: { xs: 2, sm: 3 }, py: { xs: 0, sm: 1 } }}>
+          {activeStep === 0 && (
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Основная информация об оборудовании
+              </Typography>
+              
+              <Grid container spacing={3} sx={{ mt: 0 }}>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Название оборудования"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    sx={{ 
+                      '& .MuiOutlinedInput-root': { 
+                        borderRadius: 2,
+                        backgroundColor: 'rgba(0, 0, 0, 0.02)'
+                      } 
+                    }}
+                    required
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <FormControl 
+                    fullWidth 
+                    sx={{ 
+                      '& .MuiOutlinedInput-root': { 
+                        borderRadius: 2,
+                        backgroundColor: 'rgba(0, 0, 0, 0.02)'
+                      } 
+                    }}
+                    required
+                  >
+                    <InputLabel id="category-select-label" shrink>Категория</InputLabel>
+                    <Select
+                      labelId="category-select-label"
+                      name="category_id"
+                      value={formData.category_id}
+                      label="Категория"
+                      onChange={handleChange}
+                      displayEmpty
+                      notched
+                    >
+                      <MenuItem value="" disabled>
+                        <em>Выберите категорию</em>
+                      </MenuItem>
+                      {categories.filter(cat => cat.is_active).map((category) => (
+                        <MenuItem key={category.id} value={category.id}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            {getEquipmentIcon(category.name)}
+                            <Typography>{category.name}</Typography>
+                          </Box>
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12}>
+                  <FormControl 
+                    fullWidth 
+                    sx={{ 
+                      '& .MuiOutlinedInput-root': { 
+                        borderRadius: 2,
+                        backgroundColor: 'rgba(0, 0, 0, 0.02)'
+                      } 
+                    }}
+                    required
+                  >
+                    <InputLabel id="status-select-label" shrink>Статус</InputLabel>
+                    <Select
+                      labelId="status-select-label"
+                      name="status"
+                      value={formData.status}
+                      label="Статус"
+                      onChange={handleChange}
+                      notched
+                    >
+                      <MenuItem value="active">
+                        <Chip size="small" color="success" sx={{ mr: 1 }} /> Активно
+                      </MenuItem>
+                      <MenuItem value="inactive">
+                        <Chip size="small" color="default" sx={{ mr: 1 }} /> Неактивно
+                      </MenuItem>
+                      <MenuItem value="repair">
+                        <Chip size="small" color="warning" sx={{ mr: 1 }} /> На ремонте
+                      </MenuItem>
+                      <MenuItem value="decommissioned">
+                        <Chip size="small" color="error" sx={{ mr: 1 }} /> Списано
+                      </MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
+            </Box>
+          )}
           
-          <Grid container spacing={2} sx={{ mt: 0 }}>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Название оборудования"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                sx={{ 
-                  '& .MuiOutlinedInput-root': { 
-                    borderRadius: 2,
-                    backgroundColor: 'rgba(0, 0, 0, 0.02)'
-                  } 
-                }}
-                required
-                size="small"
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl 
-                fullWidth 
-                sx={{ 
-                  '& .MuiOutlinedInput-root': { 
-                    borderRadius: 2,
-                    backgroundColor: 'rgba(0, 0, 0, 0.02)'
-                  } 
-                }}
-                required
-                size="small"
-              >
-                <InputLabel id="category-select-label" shrink>Категория</InputLabel>
-                <Select
-                  labelId="category-select-label"
-                  name="category_id"
-                  value={formData.category_id}
-                  label="Категория"
-                  onChange={handleChange}
-                  displayEmpty
-                  notched
-                >
-                  <MenuItem value="" disabled>
-                    <em>Выберите категорию</em>
-                  </MenuItem>
-                  {categories.filter(cat => cat.is_active).map((category) => (
-                    <MenuItem key={category.id} value={category.id}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {getEquipmentIcon(category.name)}
-                        <Typography>{category.name}</Typography>
-                      </Box>
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            
-            <Grid item xs={12}>
-              <Divider sx={{ my: 1 }}>
-                <Chip 
-                  label="Информация об устройстве" 
-                  size="small" 
-                  color="primary" 
-                  variant="outlined"
-                  sx={{ fontWeight: 500, fontSize: '0.75rem' }}
-                />
-              </Divider>
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Модель"
-                name="model"
-                value={formData.model}
-                onChange={handleChange}
-                sx={{ 
-                  '& .MuiOutlinedInput-root': { 
-                    borderRadius: 2,
-                    backgroundColor: 'rgba(0, 0, 0, 0.02)'
-                  } 
-                }}
-                size="small"
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Серийный номер"
-                name="serial_number"
-                value={formData.serial_number}
-                onChange={handleChange}
-                sx={{ 
-                  '& .MuiOutlinedInput-root': { 
-                    borderRadius: 2,
-                    backgroundColor: 'rgba(0, 0, 0, 0.02)'
-                  } 
-                }}
-                size="small"
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Инвентарный номер"
-                name="inventory_number"
-                value={formData.inventory_number}
-                onChange={handleChange}
-                sx={{ 
-                  '& .MuiOutlinedInput-root': { 
-                    borderRadius: 2,
-                    backgroundColor: 'rgba(0, 0, 0, 0.02)'
-                  } 
-                }}
-                size="small"
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl 
-                fullWidth 
-                sx={{ 
-                  '& .MuiOutlinedInput-root': { 
-                    borderRadius: 2,
-                    backgroundColor: 'rgba(0, 0, 0, 0.02)'
-                  } 
-                }}
-                required
-                size="small"
-              >
-                <InputLabel id="status-select-label" shrink>Статус</InputLabel>
-                <Select
-                  labelId="status-select-label"
-                  name="status"
-                  value={formData.status}
-                  label="Статус"
-                  onChange={handleChange}
-                  notched
-                >
-                  <MenuItem value="active">
-                    <Chip size="small" color="success" sx={{ mr: 1 }} /> Активно
-                  </MenuItem>
-                  <MenuItem value="inactive">
-                    <Chip size="small" color="default" sx={{ mr: 1 }} /> Неактивно
-                  </MenuItem>
-                  <MenuItem value="repair">
-                    <Chip size="small" color="warning" sx={{ mr: 1 }} /> На ремонте
-                  </MenuItem>
-                  <MenuItem value="decommissioned">
-                    <Chip size="small" color="error" sx={{ mr: 1 }} /> Списано
-                  </MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            
-            <Grid item xs={12}>
-              <Divider sx={{ my: 1 }}>
-                <Chip 
-                  label="Размещение" 
-                  size="small" 
-                  color="primary" 
-                  variant="outlined"
-                  sx={{ fontWeight: 500, fontSize: '0.75rem' }}
-                />
-              </Divider>
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Местоположение"
-                name="location"
-                value={formData.location}
-                onChange={handleChange}
-                sx={{ 
-                  '& .MuiOutlinedInput-root': { 
-                    borderRadius: 2,
-                    backgroundColor: 'rgba(0, 0, 0, 0.02)'
-                  } 
-                }}
-                size="small"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <LocationIcon fontSize="small" color="action" />
-                    </InputAdornment>
-                  ),
-                }}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Ответственное лицо"
-                name="responsible_person"
-                value={formData.responsible_person}
-                onChange={handleChange}
-                sx={{ 
-                  '& .MuiOutlinedInput-root': { 
-                    borderRadius: 2,
-                    backgroundColor: 'rgba(0, 0, 0, 0.02)'
-                  } 
-                }}
-                size="small"
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Примечания"
-                name="notes"
-                value={formData.notes}
-                onChange={handleChange}
-                multiline
-                rows={2}
-                sx={{ 
-                  '& .MuiOutlinedInput-root': { 
-                    borderRadius: 2,
-                    backgroundColor: 'rgba(0, 0, 0, 0.02)'
-                  } 
-                }}
-                size="small"
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-          </Grid>
+          {activeStep === 1 && (
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Информация о технических характеристиках
+              </Typography>
+              
+              <Grid container spacing={3} sx={{ mt: 0 }}>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Модель"
+                    name="model"
+                    value={formData.model}
+                    onChange={handleChange}
+                    sx={{ 
+                      '& .MuiOutlinedInput-root': { 
+                        borderRadius: 2,
+                        backgroundColor: 'rgba(0, 0, 0, 0.02)'
+                      } 
+                    }}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Серийный номер"
+                    name="serial_number"
+                    value={formData.serial_number}
+                    onChange={handleChange}
+                    sx={{ 
+                      '& .MuiOutlinedInput-root': { 
+                        borderRadius: 2,
+                        backgroundColor: 'rgba(0, 0, 0, 0.02)'
+                      } 
+                    }}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Инвентарный номер"
+                    name="inventory_number"
+                    value={formData.inventory_number}
+                    onChange={handleChange}
+                    sx={{ 
+                      '& .MuiOutlinedInput-root': { 
+                        borderRadius: 2,
+                        backgroundColor: 'rgba(0, 0, 0, 0.02)'
+                      } 
+                    }}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+              </Grid>
+            </Box>
+          )}
+          
+          {activeStep === 2 && (
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Информация о размещении
+              </Typography>
+              
+              <Grid container spacing={3} sx={{ mt: 0 }}>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Местоположение"
+                    name="location"
+                    value={formData.location}
+                    onChange={handleChange}
+                    sx={{ 
+                      '& .MuiOutlinedInput-root': { 
+                        borderRadius: 2,
+                        backgroundColor: 'rgba(0, 0, 0, 0.02)'
+                      } 
+                    }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <LocationIcon fontSize="small" color="action" />
+                        </InputAdornment>
+                      ),
+                    }}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Ответственное лицо"
+                    name="responsible_person"
+                    value={formData.responsible_person}
+                    onChange={handleChange}
+                    sx={{ 
+                      '& .MuiOutlinedInput-root': { 
+                        borderRadius: 2,
+                        backgroundColor: 'rgba(0, 0, 0, 0.02)'
+                      } 
+                    }}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Примечания"
+                    name="notes"
+                    value={formData.notes}
+                    onChange={handleChange}
+                    multiline
+                    rows={2}
+                    sx={{ 
+                      '& .MuiOutlinedInput-root': { 
+                        borderRadius: 2,
+                        backgroundColor: 'rgba(0, 0, 0, 0.02)'
+                      } 
+                    }}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+              </Grid>
+            </Box>
+          )}
         </DialogContent>
-        <DialogActions sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 2, sm: 3 }, pt: 1, justifyContent: { xs: 'space-between', sm: 'flex-end' } }}>
+        
+        <DialogActions sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 2, sm: 3 }, pt: 1, justifyContent: 'space-between' }}>
           <Button 
-            onClick={() => setOpenDialog(false)}
+            onClick={handleDialogClose}
             variant="outlined"
             sx={{ 
               borderRadius: 2, 
               textTransform: 'none',
-              flex: { xs: 1, sm: 'initial' } 
             }}
-            startIcon={dialogMode === 'add' ? null : <DeleteIcon fontSize="small" />}
-            color={dialogMode === 'add' ? 'inherit' : 'error'}
+            color="inherit"
           >
-            {dialogMode === 'add' ? 'Отмена' : 'Удалить'}
+            Отмена
           </Button>
+          
           <Box sx={{ display: 'flex', gap: 1 }}>
-            {dialogMode === 'edit' && (
+            {activeStep > 0 && (
               <Button 
-                onClick={() => setOpenDialog(false)}
+                onClick={handleBack}
+                variant="outlined"
                 sx={{ 
                   borderRadius: 2, 
                   textTransform: 'none',
-                  display: { xs: 'none', sm: 'flex' }
                 }}
+                startIcon={<ArrowBackIcon fontSize="small" />}
               >
-                Отмена
+                Назад
               </Button>
             )}
-            <Button 
-              onClick={handleSave}
-              variant="contained"
-              sx={{ 
-                borderRadius: 2, 
-                textTransform: 'none',
-                flex: { xs: 1, sm: 'initial' },
-                minWidth: { xs: '100px', sm: '120px' }
-              }}
-              startIcon={dialogMode === 'add' ? <AddIcon fontSize="small" /> : <EditIcon fontSize="small" />}
-            >
-              {dialogMode === 'add' ? 'Добавить' : 'Сохранить'}
-            </Button>
+            
+            {activeStep < steps.length - 1 ? (
+              <Button 
+                onClick={handleNext}
+                variant="contained"
+                sx={{ 
+                  borderRadius: 2, 
+                  textTransform: 'none',
+                }}
+                endIcon={<ArrowForwardIcon fontSize="small" />}
+              >
+                Далее
+              </Button>
+            ) : (
+              <Button 
+                onClick={handleSave}
+                variant="contained"
+                color="primary"
+                sx={{ 
+                  borderRadius: 2, 
+                  textTransform: 'none',
+                }}
+                startIcon={dialogMode === 'add' ? <AddIcon fontSize="small" /> : <CheckIcon fontSize="small" />}
+              >
+                {dialogMode === 'add' ? 'Добавить' : 'Сохранить'}
+              </Button>
+            )}
           </Box>
         </DialogActions>
       </Dialog>
