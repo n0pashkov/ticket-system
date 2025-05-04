@@ -432,15 +432,18 @@ const TicketDetailsPage = () => {
       overflow: 'hidden',
       position: 'relative',
       boxSizing: 'border-box',
-      p: 2
+      p: { xs: 1, sm: 2 },
+      bgcolor: 'background.default'
     }}>
       {/* Панель с кнопкой назад и заголовком */}
       <Box sx={{ 
         display: 'flex', 
+        flexDirection: { xs: 'column', sm: 'row' },
         justifyContent: 'space-between', 
-        alignItems: 'center', 
+        alignItems: { xs: 'flex-start', sm: 'center' }, 
         mb: 2,
-        width: '100%'
+        width: '100%',
+        gap: 1
       }}>
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <IconButton 
@@ -448,7 +451,7 @@ const TicketDetailsPage = () => {
             onClick={() => navigate('/tickets')}
             sx={{ 
               mr: 1,
-              backgroundColor: 'rgba(25, 118, 210, 0.08)'
+              backgroundColor: 'action.hover'
             }}
           >
             <ArrowBackIcon />
@@ -458,16 +461,44 @@ const TicketDetailsPage = () => {
           </Typography>
         </Box>
         
-        {canEdit && (
-          <Button
-            variant="outlined"
-            startIcon={<EditIcon />}
-            onClick={() => setEditDialogOpen(true)}
-            sx={{ borderRadius: 2 }}
-          >
-            Редактировать
-          </Button>
-        )}
+        <Box sx={{ 
+          display: 'flex', 
+          gap: 1, 
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          ml: { xs: 0, sm: 'auto' }
+        }}>
+          <Chip 
+            label={formatStatus(ticket.status)} 
+            size="medium" 
+            color={
+              ticket.status === 'new' ? 'info' :
+              ticket.status === 'in_progress' ? 'warning' :
+              ticket.status === 'closed' ? 'success' : 'default'
+            }
+            sx={{ fontWeight: 500 }}
+          />
+          <Chip 
+            label={formatPriority(ticket.priority)} 
+            size="medium"
+            color={
+              ticket.priority === 'high' ? 'error' :
+              ticket.priority === 'medium' ? 'warning' :
+              'default'
+            }
+            sx={{ fontWeight: 500 }}
+          />
+          {canEdit && (
+            <Button
+              variant="outlined"
+              startIcon={<EditIcon />}
+              onClick={() => setEditDialogOpen(true)}
+              sx={{ borderRadius: 2 }}
+            >
+              Редактировать
+            </Button>
+          )}
+        </Box>
       </Box>
 
       {/* Сообщения об ошибках */}
@@ -486,13 +517,22 @@ const TicketDetailsPage = () => {
         sx={{ 
           mb: 3, 
           borderRadius: 4, 
-          background: 'linear-gradient(120deg, #2196f3 0%, #21cbf3 100%)',
+          background: (theme) => theme.palette.mode === 'dark' 
+            ? 'linear-gradient(120deg, #1565c0 0%, #0d47a1 100%)' 
+            : 'linear-gradient(120deg, #2196f3 0%, #21cbf3 100%)',
           color: 'white',
-          boxShadow: '0 4px 20px rgba(33, 150, 243, 0.3)',
+          boxShadow: (theme) => `0 4px 20px ${theme.palette.mode === 'dark' 
+            ? 'rgba(16, 37, 63, 0.5)' 
+            : 'rgba(33, 150, 243, 0.3)'}`,
         }}
       >
-        <CardContent sx={{ p: 2.5 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+        <CardContent sx={{ p: { xs: 2, sm: 2.5 } }}>
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { xs: 'flex-start', sm: 'center' },
+            gap: 2
+          }}>
             <Avatar 
               sx={{ 
                 width: 56, 
@@ -504,32 +544,44 @@ const TicketDetailsPage = () => {
             >
               <AssignmentIcon fontSize="large" />
             </Avatar>
-            <Box sx={{ ml: 2 }}>
-              <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.1rem' }}>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.1rem', mb: 1 }}>
                 {ticket.title}
               </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                <Chip 
-                  label={formatStatus(ticket.status)} 
-                  size="small" 
-                  sx={{ 
-                    bgcolor: 'rgba(255, 255, 255, 0.2)', 
-                    color: 'white',
-                    fontWeight: 500,
-                    fontSize: '0.75rem'
-                  }}
-                />
-                <Chip 
-                  label={formatPriority(ticket.priority)} 
-                  size="small"
-                  sx={{ 
-                    bgcolor: 'rgba(255, 255, 255, 0.2)', 
-                    color: 'white',
-                    fontWeight: 500,
-                    fontSize: '0.75rem'
-                  }}
-                />
-              </Box>
+              <Grid container spacing={2} sx={{ color: 'rgba(255,255,255,0.9)' }}>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <RoomIcon fontSize="small" sx={{ mr: 0.5 }} />
+                    <Typography variant="body2">
+                      Каб: {ticket.room_number || 'Не указан'}
+                    </Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <CalendarIcon fontSize="small" sx={{ mr: 0.5 }} />
+                    <Typography variant="body2">
+                      {formatDate(ticket.created_at).split(',')[0]}
+                    </Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <PersonIcon fontSize="small" sx={{ mr: 0.5 }} />
+                    <Typography variant="body2" noWrap>
+                      {getCreatorName(ticket.creator_id)}
+                    </Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <EngineeringIcon fontSize="small" sx={{ mr: 0.5 }} />
+                    <Typography variant="body2" noWrap>
+                      {ticket.assigned_to_id ? getAssigneeName(ticket.assigned_to_id) : 'Не назначен'}
+                    </Typography>
+                  </Box>
+                </Grid>
+              </Grid>
             </Box>
           </Box>
         </CardContent>
@@ -542,7 +594,9 @@ const TicketDetailsPage = () => {
             sx={{ 
               borderRadius: 4, 
               overflow: 'hidden',
-              boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+              boxShadow: (theme) => `0 4px 8px ${theme.palette.mode === 'dark' 
+                ? 'rgba(0, 0, 0, 0.4)' 
+                : 'rgba(0, 0, 0, 0.1)'}`,
               height: '100%'
             }}
           >
@@ -555,31 +609,90 @@ const TicketDetailsPage = () => {
               </Box>
               <Divider sx={{ mb: 2 }} />
               
-              <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', mb: 3 }}>
+              <Typography variant="body1" sx={{ 
+                whiteSpace: 'pre-wrap', 
+                mb: 3,
+                p: 1,
+                bgcolor: 'action.hover',
+                borderRadius: 2,
+                borderLeft: '4px solid',
+                borderColor: 'primary.main',
+              }}>
                 {ticket.description}
               </Typography>
               
-              <Box sx={{ mb: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-                  <RoomIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary', fontSize: '1rem' }} />
-                  <Typography variant="body2" color="textSecondary">
-                    Кабинет: {ticket.room_number || 'Не указан'}
-                  </Typography>
-                </Box>
-                
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-                  <CalendarIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary', fontSize: '1rem' }} />
-                  <Typography variant="body2" color="textSecondary">
-                    Создана: {formatDate(ticket.created_at)}
-                  </Typography>
-                </Box>
-                
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-                  <TimeIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary', fontSize: '1rem' }} />
-                  <Typography variant="body2" color="textSecondary">
-                    Обновлена: {formatDate(ticket.updated_at)}
-                  </Typography>
-                </Box>
+              <Box sx={{ mt: 3 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                  Дополнительная информация:
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <Box sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      p: 1.5,
+                      borderRadius: 2,
+                      bgcolor: 'background.paper',
+                      boxShadow: (theme) => `0 2px 4px ${theme.palette.mode === 'dark' 
+                        ? 'rgba(0, 0, 0, 0.2)' 
+                        : 'rgba(0, 0, 0, 0.05)'}`,
+                    }}>
+                      <RoomIcon fontSize="small" sx={{ mr: 1, color: 'primary.main' }} />
+                      <Box>
+                        <Typography variant="caption" color="textSecondary">
+                          Кабинет
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {ticket.room_number || 'Не указан'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Box sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      p: 1.5,
+                      borderRadius: 2,
+                      bgcolor: 'background.paper',
+                      boxShadow: (theme) => `0 2px 4px ${theme.palette.mode === 'dark' 
+                        ? 'rgba(0, 0, 0, 0.2)' 
+                        : 'rgba(0, 0, 0, 0.05)'}`,
+                    }}>
+                      <CalendarIcon fontSize="small" sx={{ mr: 1, color: 'primary.main' }} />
+                      <Box>
+                        <Typography variant="caption" color="textSecondary">
+                          Создана
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {formatDate(ticket.created_at)}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Box sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      p: 1.5,
+                      borderRadius: 2,
+                      bgcolor: 'background.paper',
+                      boxShadow: (theme) => `0 2px 4px ${theme.palette.mode === 'dark' 
+                        ? 'rgba(0, 0, 0, 0.2)' 
+                        : 'rgba(0, 0, 0, 0.05)'}`,
+                    }}>
+                      <TimeIcon fontSize="small" sx={{ mr: 1, color: 'primary.main' }} />
+                      <Box>
+                        <Typography variant="caption" color="textSecondary">
+                          Обновлена
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {formatDate(ticket.updated_at)}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Grid>
+                </Grid>
               </Box>
             </CardContent>
           </Card>
@@ -591,7 +704,9 @@ const TicketDetailsPage = () => {
             sx={{ 
               borderRadius: 4, 
               overflow: 'hidden',
-              boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+              boxShadow: (theme) => `0 4px 8px ${theme.palette.mode === 'dark' 
+                ? 'rgba(0, 0, 0, 0.4)' 
+                : 'rgba(0, 0, 0, 0.1)'}`,
               height: '100%'
             }}
           >
@@ -604,53 +719,139 @@ const TicketDetailsPage = () => {
               </Box>
               <Divider sx={{ mb: 2 }} />
               
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 600 }}>
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="subtitle2" sx={{ 
+                  mb: 1, 
+                  fontWeight: 600, 
+                  display: 'flex', 
+                  alignItems: 'center'
+                }}>
+                  <PersonIcon fontSize="small" sx={{ mr: 0.5, color: 'primary.main' }} />
                   Создатель:
                 </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Paper
+                  elevation={0}
+                  sx={{ 
+                    p: 1.5, 
+                    borderRadius: 2, 
+                    bgcolor: 'background.paper',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
+                >
                   <Avatar 
                     sx={{ 
-                      width: 32, 
-                      height: 32, 
+                      width: 40, 
+                      height: 40, 
                       bgcolor: 'primary.main',
-                      fontSize: '0.8rem',
-                      mr: 1
+                      fontSize: '1rem',
+                      mr: 1.5
                     }}
                   >
                     {ticket.creator_id ? getCreatorName(ticket.creator_id).substring(0, 2) : "?"}
                   </Avatar>
-                  <Typography variant="body2">
-                    {getCreatorName(ticket.creator_id)}
-                  </Typography>
-                </Box>
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      {getCreatorName(ticket.creator_id)}
+                    </Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      Создал заявку {formatDate(ticket.created_at).split(',')[0]}
+                    </Typography>
+                  </Box>
+                </Paper>
               </Box>
               
               <Box>
-                <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 600 }}>
+                <Typography variant="subtitle2" sx={{ 
+                  mb: 1, 
+                  fontWeight: 600,
+                  display: 'flex', 
+                  alignItems: 'center'
+                }}>
+                  <EngineeringIcon fontSize="small" sx={{ mr: 0.5, color: '#29b6f6' }} />
                   Исполнитель:
                 </Typography>
                 {ticket.assigned_to_id ? (
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Paper
+                    elevation={0}
+                    sx={{ 
+                      p: 1.5, 
+                      borderRadius: 2, 
+                      bgcolor: (theme) => theme.palette.mode === 'dark' 
+                        ? 'rgba(41, 182, 246, 0.15)' 
+                        : 'rgba(41, 182, 246, 0.1)',
+                      border: '1px solid',
+                      borderColor: (theme) => theme.palette.mode === 'dark' 
+                        ? 'rgba(41, 182, 246, 0.4)' 
+                        : 'rgba(41, 182, 246, 0.3)',
+                      display: 'flex',
+                      alignItems: 'center'
+                    }}
+                  >
                     <Avatar 
                       sx={{ 
-                        width: 32, 
-                        height: 32, 
+                        width: 40, 
+                        height: 40, 
                         bgcolor: '#29b6f6',
-                        fontSize: '0.8rem',
-                        mr: 1
+                        fontSize: '1rem',
+                        mr: 1.5
                       }}
                     >
                       <EngineeringIcon fontSize="small" />
                     </Avatar>
-                    <Typography variant="body2">
-                      {getAssigneeName(ticket.assigned_to_id)}
-                    </Typography>
-                  </Box>
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        {getAssigneeName(ticket.assigned_to_id)}
+                      </Typography>
+                      <Typography variant="caption" color="textSecondary">
+                        {ticket.status === 'in_progress' ? 'Работает над заявкой' : 
+                         ticket.status === 'closed' ? 'Выполнил заявку' : 'Назначен на заявку'}
+                      </Typography>
+                    </Box>
+                  </Paper>
                 ) : (
-                  <Typography variant="body2" color="textSecondary">
-                    Исполнитель не назначен
-                  </Typography>
+                  <Paper
+                    elevation={0}
+                    sx={{ 
+                      p: 1.5, 
+                      borderRadius: 2, 
+                      bgcolor: 'background.paper',
+                      border: '1px dashed',
+                      borderColor: 'divider',
+                      display: 'flex',
+                      alignItems: 'center'
+                    }}
+                  >
+                    <Avatar 
+                      sx={{ 
+                        width: 40, 
+                        height: 40, 
+                        bgcolor: 'action.disabledBackground',
+                        fontSize: '1rem',
+                        mr: 1.5
+                      }}
+                    >
+                      <EngineeringIcon fontSize="small" color="disabled" />
+                    </Avatar>
+                    <Typography variant="body2" color="textSecondary">
+                      Исполнитель не назначен
+                    </Typography>
+                  </Paper>
+                )}
+                
+                {showSelfAssignButton && (
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    color="primary"
+                    startIcon={<AssignmentIndIcon />}
+                    onClick={handleSelfAssign}
+                    sx={{ mt: 2, borderRadius: 2 }}
+                  >
+                    Взять в работу
+                  </Button>
                 )}
               </Box>
             </CardContent>
@@ -663,194 +864,208 @@ const TicketDetailsPage = () => {
             sx={{ 
               borderRadius: 4, 
               overflow: 'hidden',
-              boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+              boxShadow: (theme) => `0 4px 8px ${theme.palette.mode === 'dark' 
+                ? 'rgba(0, 0, 0, 0.4)' 
+                : 'rgba(0, 0, 0, 0.1)'}`,
               mb: 3,
               width: '100%'
             }}
           >
             <CardContent sx={{ p: 2 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-                <CategoryIcon sx={{ mr: 1, color: 'action.active' }} />
-                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                  Категория и оборудование
-                </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <DevicesIcon sx={{ mr: 1, color: 'action.active' }} />
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                    Оборудование
+                  </Typography>
+                </Box>
               </Box>
               <Divider sx={{ mb: 2 }} />
               
-              {/* Информация о категории */}
-              <Box sx={{ mb: 3 }}>
-                {categoryLoading ? (
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <CircularProgress size={20} sx={{ mr: 1 }} />
-                    <Typography variant="body2">Загрузка категории...</Typography>
-                  </Box>
-                ) : categoryError ? (
-                  <Alert severity="error" sx={{ mb: 2 }}>
-                    {categoryError}
-                  </Alert>
-                ) : category ? (
-                  <Box>
-                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                      Категория:
-                    </Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', mb: 2 }}>
-                      <Typography variant="body1" sx={{ fontWeight: 500, wordBreak: 'break-word' }}>
-                        {category.name}
-                      </Typography>
-                      {category.description && (
-                        <Typography variant="body2" color="text.secondary" sx={{ wordBreak: 'break-word' }}>
-                          {category.description}
+              <Grid container spacing={2}>
+                {/* Информация о категории */}
+                <Grid item xs={12} md={4}>
+                  <Box sx={{ mb: { xs: 2, md: 0 } }}>
+                    {categoryLoading ? (
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <CircularProgress size={20} sx={{ mr: 1 }} />
+                        <Typography variant="body2">Загрузка категории...</Typography>
+                      </Box>
+                    ) : categoryError ? (
+                      <Alert severity="error" sx={{ mb: 2 }}>
+                        {categoryError}
+                      </Alert>
+                    ) : category ? (
+                      <Box>
+                        <Typography variant="subtitle2" sx={{ 
+                          mb: 1, 
+                          fontWeight: 600,
+                          display: 'flex',
+                          alignItems: 'center'
+                        }}>
+                          <CategoryIcon fontSize="small" sx={{ mr: 0.5, color: 'primary.main' }} />
+                          Категория:
                         </Typography>
-                      )}
-                    </Box>
-                  </Box>
-                ) : (
-                  <Typography variant="body2" color="text.secondary">
-                    Категория не указана
-                  </Typography>
-                )}
-              </Box>
-
-              {/* Информация об оборудовании */}
-              <Box>
-                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                  {(() => {
-                    if (equipment && equipment.filter(item => item.isRelatedToTicket).length > 0) {
-                      return "Оборудование, связанное с заявкой:";
-                    }
-                    return "Связанное оборудование:";
-                  })()}
-                </Typography>
-                
-                {equipmentLoading ? (
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <CircularProgress size={20} sx={{ mr: 1 }} />
-                    <Typography variant="body2">Загрузка оборудования...</Typography>
-                  </Box>
-                ) : equipmentError ? (
-                  <Alert severity="error" sx={{ mb: 2 }}>
-                    Не удалось загрузить данные об оборудовании
-                  </Alert>
-                ) : equipment && equipment.length > 0 ? (
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-                    {(() => {
-                      const relatedEquipment = equipment.filter(item => item.isRelatedToTicket);
-                      if (relatedEquipment.length === 0) {
-                        return (
-                          <Typography variant="body2" color="text.secondary">
-                            Нет связанного оборудования для этой заявки
-                          </Typography>
-                        );
-                      }
-                      return relatedEquipment.map((item) => (
-                        <Paper 
-                          key={item.id}
+                        <Paper
+                          elevation={0}
                           sx={{ 
-                            p: 2, 
+                            p: 1.5, 
                             borderRadius: 2, 
+                            bgcolor: (theme) => theme.palette.mode === 'dark' 
+                              ? 'rgba(25, 118, 210, 0.15)' 
+                              : 'rgba(25, 118, 210, 0.05)',
                             border: '1px solid',
-                            borderColor: 'primary.main',
-                            width: { xs: '100%', sm: 'calc(50% - 8px)', md: 'calc(50% - 8px)' },
-                            display: 'flex',
-                            flexDirection: 'column',
-                            minWidth: 250,
-                            backgroundColor: 'rgba(25, 118, 210, 0.05)',
-                            position: 'relative'
+                            borderColor: 'primary.light',
                           }}
                         >
-                          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, width: '100%' }}>
-                            <DevicesIcon fontSize="small" sx={{ 
-                              mr: 1, 
-                              color: 'primary.main', 
-                              flexShrink: 0 
-                            }} />
-                            <Typography 
-                              variant="subtitle2" 
-                              sx={{ 
-                                fontWeight: 700,
-                                wordBreak: 'break-word',
-                                color: 'primary.main'
-                              }}
-                            >
-                              {item.name}
+                          <Typography variant="body2" sx={{ fontWeight: 500, mb: 1, color: 'primary.main' }}>
+                            {category.name}
+                          </Typography>
+                          {category.description && (
+                            <Typography variant="body2" color="text.secondary" sx={{ wordBreak: 'break-word' }}>
+                              {category.description}
                             </Typography>
-                          </Box>
-                          
-                          <Box sx={{ mb: 'auto', width: '100%' }}>
-                            <Box sx={{ display: 'flex', flexDirection: 'column', mb: 1 }}>
-                              <Typography variant="body2" component="span" sx={{ fontWeight: 500 }}>
-                                Модель:
-                              </Typography>
-                              <Typography variant="body2" component="span" sx={{ 
-                                color: item.model ? 'text.primary' : 'text.secondary',
-                                wordBreak: 'break-word'
-                              }}>
-                                {item.model || 'Не указана'}
-                              </Typography>
-                            </Box>
-                            
-                            <Box sx={{ display: 'flex', flexDirection: 'column', mb: 1 }}>
-                              <Typography variant="body2" component="span" sx={{ fontWeight: 500 }}>
-                                S/N:
-                              </Typography>
-                              <Typography variant="body2" component="span" sx={{ 
-                                color: item.serial_number ? 'text.primary' : 'text.secondary',
-                                wordBreak: 'break-word'
-                              }}>
-                                {item.serial_number || 'Не указан'}
-                              </Typography>
-                            </Box>
-                            
-                            <Box sx={{ display: 'flex', flexDirection: 'column', mb: 1 }}>
-                              <Typography variant="body2" component="span" sx={{ fontWeight: 500 }}>
-                                Местоположение:
-                              </Typography>
-                              <Typography variant="body2" component="span" sx={{ 
-                                color: item.location ? 'text.primary' : 'text.secondary',
-                                wordBreak: 'break-word'
-                              }}>
-                                {item.location || 'Не указано'}
-                              </Typography>
-                            </Box>
-                          </Box>
-                          
-                          {item.status && (
-                            <Chip 
-                              label={item.status === 'working' ? 'Работает' : 
-                                     item.status === 'maintenance' ? 'На обслуживании' : 
-                                     item.status === 'broken' ? 'Неисправен' : 
-                                     item.status === 'active' ? 'Активен' : item.status}
-                              size="small"
-                              color={
-                                item.status === 'working' || item.status === 'active' ? 'success' :
-                                item.status === 'maintenance' ? 'warning' :
-                                item.status === 'broken' ? 'error' : 'default'
-                              }
-                              sx={{ 
-                                mt: 1,
-                                alignSelf: 'flex-start',
-                                minWidth: 90,
-                                maxWidth: '100%',
-                                whiteSpace: 'normal',
-                                height: 'auto',
-                                '& .MuiChip-label': { 
-                                  whiteSpace: 'normal',
-                                  padding: '4px 8px',
-                                  overflow: 'visible'
-                                }
-                              }}
-                            />
                           )}
                         </Paper>
-                      ));
-                    })()}
+                      </Box>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        Категория не указана
+                      </Typography>
+                    )}
                   </Box>
-                ) : (
-                  <Typography variant="body2" color="text.secondary">
-                    Нет связанного оборудования
+                </Grid>
+
+                {/* Информация об оборудовании */}
+                <Grid item xs={12} md={8}>
+                  <Typography variant="subtitle2" sx={{ 
+                    mb: 1, 
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}>
+                    <DevicesIcon fontSize="small" sx={{ mr: 0.5, color: 'primary.main' }} />
+                    {(() => {
+                      if (equipment && equipment.filter(item => item.isRelatedToTicket).length > 0) {
+                        return "Оборудование, связанное с заявкой:";
+                      }
+                      return "Связанное оборудование:";
+                    })()}
                   </Typography>
-                )}
-              </Box>
+                  
+                  {equipmentLoading ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <CircularProgress size={20} sx={{ mr: 1 }} />
+                      <Typography variant="body2">Загрузка оборудования...</Typography>
+                    </Box>
+                  ) : equipmentError ? (
+                    <Alert severity="error" sx={{ mb: 2 }}>
+                      Не удалось загрузить данные об оборудовании
+                    </Alert>
+                  ) : equipment && equipment.length > 0 ? (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                      {(() => {
+                        const relatedEquipment = equipment.filter(item => item.isRelatedToTicket);
+                        if (relatedEquipment.length === 0) {
+                          return (
+                            <Typography variant="body2" color="text.secondary">
+                              Нет связанного оборудования для этой заявки
+                            </Typography>
+                          );
+                        }
+                        return relatedEquipment.map((item) => (
+                          <Paper 
+                            key={item.id}
+                            sx={{ 
+                              p: 2, 
+                              borderRadius: 2, 
+                              border: '1px solid',
+                              borderColor: 'primary.main',
+                              width: { xs: '100%', sm: 'calc(50% - 8px)', md: 'calc(50% - 8px)' },
+                              display: 'flex',
+                              flexDirection: 'column',
+                              minWidth: 250,
+                              backgroundColor: (theme) => theme.palette.mode === 'dark' 
+                                ? 'rgba(25, 118, 210, 0.15)' 
+                                : 'rgba(25, 118, 210, 0.05)',
+                              position: 'relative'
+                            }}
+                          >
+                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, width: '100%' }}>
+                              <DevicesIcon fontSize="small" sx={{ 
+                                mr: 1, 
+                                color: 'primary.main', 
+                                flexShrink: 0 
+                              }} />
+                              <Typography 
+                                variant="subtitle2" 
+                                sx={{ 
+                                  fontWeight: 700,
+                                  wordBreak: 'break-word',
+                                  color: 'primary.main'
+                                }}
+                              >
+                                {item.name}
+                              </Typography>
+                            </Box>
+                            
+                            <Grid container spacing={1} sx={{ mb: 'auto' }}>
+                              <Grid item xs={6}>
+                                <Typography variant="caption" component="div" sx={{ color: 'text.secondary' }}>
+                                  Модель:
+                                </Typography>
+                                <Typography variant="body2" component="div" sx={{ fontWeight: 500 }}>
+                                  {item.model || 'Не указана'}
+                                </Typography>
+                              </Grid>
+                              <Grid item xs={6}>
+                                <Typography variant="caption" component="div" sx={{ color: 'text.secondary' }}>
+                                  S/N:
+                                </Typography>
+                                <Typography variant="body2" component="div" sx={{ fontWeight: 500 }}>
+                                  {item.serial_number || 'Не указан'}
+                                </Typography>
+                              </Grid>
+                              <Grid item xs={12}>
+                                <Typography variant="caption" component="div" sx={{ color: 'text.secondary' }}>
+                                  Местоположение:
+                                </Typography>
+                                <Typography variant="body2" component="div" sx={{ fontWeight: 500 }}>
+                                  {item.location || 'Не указано'}
+                                </Typography>
+                              </Grid>
+                            </Grid>
+                            
+                            {item.status && (
+                              <Chip 
+                                label={item.status === 'working' ? 'Работает' : 
+                                       item.status === 'maintenance' ? 'На обслуживании' : 
+                                       item.status === 'broken' ? 'Неисправен' : 
+                                       item.status === 'active' ? 'Активен' : item.status}
+                                size="small"
+                                color={
+                                  item.status === 'working' || item.status === 'active' ? 'success' :
+                                  item.status === 'maintenance' ? 'warning' :
+                                  item.status === 'broken' ? 'error' : 'default'
+                                }
+                                sx={{ 
+                                  mt: 1,
+                                  alignSelf: 'flex-start'
+                                }}
+                              />
+                            )}
+                          </Paper>
+                        ));
+                      })()}
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      Нет связанного оборудования
+                    </Typography>
+                  )}
+                </Grid>
+              </Grid>
+
             </CardContent>
           </Card>
         </Grid>
@@ -863,7 +1078,8 @@ const TicketDetailsPage = () => {
           flexWrap: 'wrap', 
           gap: 2, 
           mt: 3, 
-          mb: 3 
+          mb: 3,
+          justifyContent: { xs: 'center', sm: 'flex-start' } 
         }}>
           {showSelfAssignButton && (
             <Button 
@@ -930,49 +1146,126 @@ const TicketDetailsPage = () => {
       {/* Секция сообщений заявки */}
       {messages.length > 0 ? (
         <Box sx={{ mt: 4 }}>
-          <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, display: 'flex', alignItems: 'center' }}>
-            <MessageIcon sx={{ mr: 1 }} />
-            Сообщения заявки
-          </Typography>
-          <Paper sx={{ borderRadius: 4, p: 2 }}>
-            {loadingMessages ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-                <CircularProgress size={30} />
+          <Card 
+            sx={{ 
+              borderRadius: 4, 
+              overflow: 'hidden',
+              boxShadow: (theme) => `0 4px 8px ${theme.palette.mode === 'dark' 
+                ? 'rgba(0, 0, 0, 0.4)' 
+                : 'rgba(0, 0, 0, 0.1)'}`,
+              bgcolor: 'background.paper'
+            }}
+          >
+            <CardContent sx={{ p: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+                <MessageIcon sx={{ mr: 1, color: 'action.active' }} />
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  Сообщения заявки
+                </Typography>
+                <Typography 
+                  variant="caption" 
+                  sx={{ 
+                    bgcolor: (theme) => theme.palette.mode === 'dark' 
+                      ? 'primary.dark' 
+                      : 'primary.main', 
+                    color: 'white', 
+                    borderRadius: 10, 
+                    px: 1, 
+                    py: 0.25, 
+                    ml: 1 
+                  }}
+                >
+                  {messages.length}
+                </Typography>
               </Box>
-            ) : (
-              <List sx={{ width: '100%', bgcolor: 'background.paper' }}>
-                {messages.map((message) => (
-                  <ListItem key={message.id} alignItems="flex-start" sx={{ px: 2, py: 1 }}>
-                    <ListItemAvatar>
-                      <Avatar sx={{ bgcolor: 'primary.main' }}>
-                        <PersonIcon />
-                      </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={<Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                        {getUserById(message.user_id)?.full_name || "Пользователь"}
-                      </Typography>}
-                      secondary={
-                        <React.Fragment>
-                          <Typography
-                            component="span"
-                            variant="body2"
-                            color="text.primary"
-                            sx={{ display: 'block', mb: 0.5 }}
-                          >
-                            {message.message}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {formatDate(message.created_at)}
-                          </Typography>
-                        </React.Fragment>
-                      }
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            )}
-          </Paper>
+              <Divider sx={{ mb: 2 }} />
+
+              {loadingMessages ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                  <CircularProgress size={30} />
+                </Box>
+              ) : (
+                <List sx={{ 
+                  width: '100%', 
+                  p: 0,
+                  '& .MuiListItem-root': {
+                    bgcolor: 'transparent'
+                  }
+                }}>
+                  {messages.map((message, index) => (
+                    <React.Fragment key={message.id}>
+                      <Box 
+                        sx={{ 
+                          py: 1.5,
+                          px: 1,
+                          mb: 1,
+                          borderRadius: 2,
+                          bgcolor: (theme) => index % 2 === 0 
+                            ? theme.palette.mode === 'dark' 
+                              ? 'rgba(255, 255, 255, 0.03)' 
+                              : 'rgba(0, 0, 0, 0.02)'
+                            : 'transparent'
+                        }}
+                      >
+                        <ListItem 
+                          alignItems="flex-start" 
+                          sx={{ 
+                            p: 0,
+                            bgcolor: 'transparent'
+                          }}
+                        >
+                          <ListItemAvatar>
+                            <Avatar sx={{ 
+                              bgcolor: message.user_id === ticket.creator_id ? 'primary.main' : 
+                                       message.user_id === ticket.assigned_to_id ? '#29b6f6' : 'secondary.main'
+                            }}>
+                              {message.user_id === ticket.creator_id ? <PersonIcon /> : 
+                               message.user_id === ticket.assigned_to_id ? <EngineeringIcon /> : <PersonIcon />}
+                            </Avatar>
+                          </ListItemAvatar>
+                          <ListItemText
+                            primary={
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                                  {getUserById(message.user_id)?.full_name || "Пользователь"}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {formatDate(message.created_at)}
+                                </Typography>
+                              </Box>
+                            }
+                            secondary={
+                              <Typography
+                                component="div"
+                                variant="body2"
+                                color="text.primary"
+                                sx={{ 
+                                  display: 'block', 
+                                  mt: 1,
+                                  p: 1.5,
+                                  bgcolor: (theme) => theme.palette.mode === 'dark' 
+                                    ? 'rgba(255, 255, 255, 0.05)' 
+                                    : 'background.paper',
+                                  borderRadius: 2,
+                                  border: '1px solid',
+                                  borderColor: 'divider'
+                                }}
+                              >
+                                {message.message}
+                              </Typography>
+                            }
+                          />
+                        </ListItem>
+                      </Box>
+                      {index < messages.length - 1 && (
+                        <Divider variant="inset" component="li" sx={{ my: 0 }} />
+                      )}
+                    </React.Fragment>
+                  ))}
+                </List>
+              )}
+            </CardContent>
+          </Card>
         </Box>
       ) : loadingMessages ? (
         <Box sx={{ mt: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -991,7 +1284,12 @@ const TicketDetailsPage = () => {
         maxWidth="sm"
         PaperProps={{ sx: { borderRadius: 3 } }}
       >
-        <DialogTitle sx={{ pb: 1 }}>
+        <DialogTitle sx={{ 
+          pb: 1, 
+          display: 'flex', 
+          alignItems: 'center' 
+        }}>
+          <EditIcon sx={{ mr: 1, color: 'primary.main' }} />
           Редактирование заявки
         </DialogTitle>
         <DialogContent>
@@ -1099,13 +1397,39 @@ const TicketDetailsPage = () => {
         onClose={() => setDeleteDialogOpen(false)}
         PaperProps={{ sx: { borderRadius: 3 } }}
       >
-        <DialogTitle>
+        <DialogTitle sx={{ 
+          display: 'flex', 
+          alignItems: 'center',
+          color: 'error.main'
+        }}>
+          <DeleteIcon sx={{ mr: 1 }} />
           Удаление заявки
         </DialogTitle>
         <DialogContent>
           <DialogContentText>
             Вы уверены, что хотите удалить эту заявку? Это действие нельзя отменить.
           </DialogContentText>
+          <Box sx={{ 
+            p: 2, 
+            mt: 2, 
+            bgcolor: (theme) => theme.palette.mode === 'dark' 
+              ? 'rgba(211, 47, 47, 0.2)' 
+              : 'error.light', 
+            color: (theme) => theme.palette.mode === 'dark'
+              ? theme.palette.error.light
+              : theme.palette.error.dark,
+            borderRadius: 2,
+            fontSize: '0.875rem',
+            border: '1px solid',
+            borderColor: 'error.main'
+          }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+              Внимание!
+            </Typography>
+            <Typography variant="body2">
+              Удаление заявки приведет к потере всей связанной с ней информации, включая сообщения и историю обработки.
+            </Typography>
+          </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>
           <Button 
@@ -1137,13 +1461,35 @@ const TicketDetailsPage = () => {
         maxWidth="sm"
         PaperProps={{ sx: { borderRadius: 3 } }}
       >
-        <DialogTitle sx={{ pb: 1 }}>
+        <DialogTitle sx={{ 
+          pb: 1, 
+          display: 'flex', 
+          alignItems: 'center', 
+          color: 'success.main' 
+        }}>
+          <CheckCircleIcon sx={{ mr: 1 }} />
           Закрытие заявки с сообщением
         </DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 2 }}>
             Пожалуйста, введите сообщение о результатах выполнения заявки.
           </DialogContentText>
+          <Box sx={{ 
+            p: 2, 
+            mb: 2, 
+            bgcolor: (theme) => theme.palette.mode === 'dark' 
+              ? 'rgba(46, 125, 50, 0.2)' 
+              : 'success.light', 
+            color: (theme) => theme.palette.mode === 'dark'
+              ? theme.palette.success.light
+              : theme.palette.success.dark,
+            borderRadius: 2,
+            fontSize: '0.875rem'
+          }}>
+            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+              Ваше сообщение будет добавлено к заявке и видно заявителю. Опишите, что было сделано для решения проблемы.
+            </Typography>
+          </Box>
           <TextField
             autoFocus
             margin="dense"
@@ -1154,6 +1500,7 @@ const TicketDetailsPage = () => {
             variant="outlined"
             value={closeMessage}
             onChange={(e) => setCloseMessage(e.target.value)}
+            placeholder="Например: Проблема решена. Заменил расходные материалы и произвел настройку оборудования."
             sx={{ 
               '& .MuiOutlinedInput-root': {
                 borderRadius: 2,
