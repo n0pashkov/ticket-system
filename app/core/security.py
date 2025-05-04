@@ -10,7 +10,7 @@ from sqlalchemy import select
 
 from app.db.database import get_db
 from app.db.async_database import get_async_db
-from app.models.models import User
+from app.models.models import User, UserRole
 from app.schemas.schemas import TokenData
 from app.core.config import settings
 
@@ -120,4 +120,16 @@ async def get_current_user_async(token: str = Depends(oauth2_scheme), db: AsyncS
 async def get_current_active_user(current_user: User = Depends(get_current_user_async)):
     if not current_user.is_active:
         raise HTTPException(status_code=400, detail="Неактивный пользователь")
+    return current_user
+
+
+# Функция для получения текущего администратора
+async def get_current_admin(
+    current_user: User = Depends(get_current_active_user),
+) -> User:
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Доступ разрешен только администраторам"
+        )
     return current_user 

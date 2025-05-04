@@ -191,13 +191,23 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    // Используем функцию для очистки токена и кэша
-    clearAuthData();
-    // Также очищаем sessionStorage
-    sessionStorage.removeItem('user_data_backup');
-    setError(null);
+  const logout = async () => {
+    try {
+      // Вызываем API для логирования выхода, если есть токен
+      if (localStorage.getItem('token')) {
+        await authAPI.logout();
+      }
+    } catch (error) {
+      console.error('Ошибка при выходе из системы:', error);
+    } finally {
+      // Очищаем состояние пользователя и токен в любом случае
+      setUser(null);
+      // Используем функцию для очистки токена и кэша
+      clearAuthData();
+      // Также очищаем sessionStorage
+      sessionStorage.removeItem('user_data_backup');
+      setError(null);
+    }
     
     // Не перезагружаем страницу, React Router сам перенаправит на /login
   };

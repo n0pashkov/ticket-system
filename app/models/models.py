@@ -46,6 +46,25 @@ class EquipmentStatus(str, enum.Enum):
     DECOMMISSIONED = "decommissioned"
 
 
+# Определение типов действий для аудит-логов
+class AuditActionType(str, enum.Enum):
+    USER_LOGIN = "user_login"
+    USER_LOGOUT = "user_logout"
+    USER_CREATE = "user_create"
+    USER_UPDATE = "user_update"
+    USER_DELETE = "user_delete"
+    TICKET_CREATE = "ticket_create"
+    TICKET_UPDATE = "ticket_update"
+    TICKET_ASSIGN = "ticket_assign"
+    TICKET_CLOSE = "ticket_close"
+    EQUIPMENT_CREATE = "equipment_create"
+    EQUIPMENT_UPDATE = "equipment_update"
+    EQUIPMENT_DELETE = "equipment_delete"
+    MAINTENANCE_CREATE = "maintenance_create"
+    MAINTENANCE_UPDATE = "maintenance_update"
+    OTHER = "other"
+
+
 # Модель пользователя
 class User(Base):
     __tablename__ = "users"
@@ -290,4 +309,35 @@ class Maintenance(Base):
         Index('ix_maintenance_equipment_id', 'equipment_id'),
         # Индекс для поиска по дате обслуживания
         Index('ix_maintenance_performed_at', 'performed_at'),
+    )
+
+
+# Модель аудит-лога
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    action_type = Column(String, nullable=False)  # Тип действия
+    description = Column(Text, nullable=False)  # Описание действия
+    entity_type = Column(String, nullable=True)  # Тип сущности (user, ticket, equipment и т.д.)
+    entity_id = Column(Integer, nullable=True)  # ID сущности
+    old_values = Column(Text, nullable=True)  # Старые значения (JSON)
+    new_values = Column(Text, nullable=True)  # Новые значения (JSON)
+    ip_address = Column(String, nullable=True)  # IP-адрес
+    user_agent = Column(String, nullable=True)  # User-Agent
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    
+    # Внешний ключ на пользователя, выполнившего действие
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    user = relationship("User", backref="audit_logs", lazy="selectin")
+
+    __table_args__ = (
+        # Индекс для поиска по пользователю
+        Index('ix_audit_logs_user_id', 'user_id'),
+        # Индекс для поиска по дате создания
+        Index('ix_audit_logs_created_at', 'created_at'),
+        # Индекс для поиска по типу действия
+        Index('ix_audit_logs_action_type', 'action_type'),
+        # Индекс для поиска по типу сущности и ID
+        Index('ix_audit_logs_entity', 'entity_type', 'entity_id'),
     ) 

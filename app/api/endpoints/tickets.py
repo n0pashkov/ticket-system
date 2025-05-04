@@ -1,7 +1,7 @@
 from typing import List, Optional
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status as http_status, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, status as http_status, Query, Response, Request
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import SQLAlchemyError
 from fastapi.encoders import jsonable_encoder
@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 
 from app.core.security import get_current_active_user
 from app.core.dependencies import get_current_agent_or_admin
-from app.core.logging import get_logger
+from app.core.logging import get_logger, log_user_action
 from app.db.database import get_db
 from app.models.models import Ticket, User, UserRole, TicketStatus, TicketMessage, TicketCategory
 from app.schemas.schemas import Ticket as TicketSchema
@@ -24,6 +24,7 @@ logger = get_logger("api.tickets")
 @router.post("/", response_model=TicketSchema, status_code=http_status.HTTP_201_CREATED)
 def create_ticket(
     ticket: TicketCreate,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -40,6 +41,26 @@ def create_ticket(
         db.add(db_ticket)
         db.commit()
         db.refresh(db_ticket)
+        
+        # Логируем создание заявки
+        log_user_action(
+            db=db,
+            user=current_user,
+            action_type="CREATE",
+            description=f"Создана новая заявка: {ticket.title}",
+            entity_type="ticket",
+            entity_id=db_ticket.id,
+            new_values={
+                "title": ticket.title,
+                "description": ticket.description,
+                "priority": ticket.priority,
+                "category_id": ticket.category_id,
+                "room_number": ticket.room_number,
+                "equipment_id": ticket.equipment_id
+            },
+            request=request
+        )
+        
         logger.info(f"Ticket created: ID={db_ticket.id}, by user_id={current_user.id}")
         return db_ticket
     except SQLAlchemyError as e:
@@ -222,6 +243,7 @@ def assign_ticket(
 def update_ticket_status(
     ticket_id: int,
     status: TicketStatus,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_agent_or_admin)
 ):
@@ -233,8 +255,24 @@ def update_ticket_status(
     # Если пользователь - администратор, ему разрешены любые изменения
     # Агент теперь тоже может менять статус любой заявки
     
+    # Сохраняем предыдущий статус для логирования
+    old_status = db_ticket.status
+    
     # Меняем статус
     db_ticket.status = status
+    
+    # Логируем действие
+    log_user_action(
+        db=db,
+        user=current_user,
+        action_type="UPDATE",
+        description=f"Изменен статус заявки #{ticket_id} с '{old_status}' на '{status}'",
+        entity_type="ticket",
+        entity_id=ticket_id,
+        old_values={"status": old_status},
+        new_values={"status": status},
+        request=request
+    )
     
     db.commit()
     db.refresh(db_ticket)
@@ -244,6 +282,7 @@ def update_ticket_status(
 @router.post("/{ticket_id}/assign", response_model=TicketSchema)
 def assign_ticket_to_current_agent(
     ticket_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -259,12 +298,35 @@ def assign_ticket_to_current_agent(
     if not db_ticket:
         raise HTTPException(status_code=404, detail="Заявка не найдена")
     
+    # Сохраняем предыдущие значения для логирования
+    old_assigned_to_id = db_ticket.assigned_to_id
+    old_status = db_ticket.status
+    
     # Назначаем заявку текущему агенту
     db_ticket.assigned_to_id = current_user.id
     
     # Если заявка была в статусе NEW, меняем статус на IN_PROGRESS
     if db_ticket.status == TicketStatus.NEW:
         db_ticket.status = TicketStatus.IN_PROGRESS
+    
+    # Логируем действие
+    log_user_action(
+        db=db,
+        user=current_user,
+        action_type="UPDATE",
+        description=f"Заявка #{ticket_id} назначена на агента {current_user.username}",
+        entity_type="ticket",
+        entity_id=ticket_id,
+        old_values={
+            "assigned_to_id": old_assigned_to_id,
+            "status": old_status
+        },
+        new_values={
+            "assigned_to_id": current_user.id,
+            "status": db_ticket.status
+        },
+        request=request
+    )
     
     db.commit()
     db.refresh(db_ticket)
@@ -274,6 +336,7 @@ def assign_ticket_to_current_agent(
 @router.post("/{ticket_id}/close", response_model=TicketSchema)
 def close_ticket(
     ticket_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -292,8 +355,24 @@ def close_ticket(
                 detail="Нет прав для закрытия данной заявки"
             )
     
+    # Сохраняем предыдущий статус для логирования
+    old_status = db_ticket.status
+    
     # Закрываем заявку
     db_ticket.status = TicketStatus.CLOSED
+    
+    # Логируем действие
+    log_user_action(
+        db=db,
+        user=current_user,
+        action_type="UPDATE",
+        description=f"Заявка #{ticket_id} закрыта пользователем {current_user.username}",
+        entity_type="ticket",
+        entity_id=ticket_id,
+        old_values={"status": old_status},
+        new_values={"status": TicketStatus.CLOSED},
+        request=request
+    )
     
     db.commit()
     db.refresh(db_ticket)

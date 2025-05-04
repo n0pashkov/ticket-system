@@ -79,3 +79,4 @@ complete_tickets.py
 ticket_report.py
 test_api.py
 update_ticket.py 
+node_modules/

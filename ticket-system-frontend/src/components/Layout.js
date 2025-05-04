@@ -19,6 +19,7 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import ComputerIcon from '@mui/icons-material/Computer';
+import HistoryIcon from '@mui/icons-material/History';
 import { useAuth } from '../context/AuthContext';
 import { useThemeMode } from '../context/ThemeContext';
 
@@ -112,6 +113,7 @@ const Layout = () => {
   const adminMenuItems = [
     { text: 'Управление пользователями', icon: <PeopleIcon />, path: '/admin/users' },
     { text: 'Управление оборудованием', icon: <ComputerIcon />, path: '/admin/equipment' },
+    { text: 'Журнал аудита', icon: <HistoryIcon />, path: '/admin/audit-logs' },
   ];
   
   // Формируем итоговый список пунктов меню в зависимости от роли
@@ -413,6 +415,7 @@ const Layout = () => {
             {location.pathname === '/admin' && 'Панель администратора'}
             {location.pathname === '/admin/users' && 'Управление пользователями'}
             {location.pathname === '/admin/equipment' && 'Управление оборудованием'}
+            {location.pathname === '/admin/audit-logs' && 'Журнал аудита действий'}
             {location.pathname === '/agent' && 'Панель специалиста'}
           </Typography>
 

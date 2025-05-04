@@ -10,8 +10,8 @@ export const api = axios.create({
     'Content-Type': 'application/json',
     // Убираем no-cache заголовки, чтобы разрешить кэширование
   },
-  // Добавляем таймаут для запросов
-  timeout: 10000,
+  // Увеличиваем таймаут для запросов
+  timeout: 30000,
 });
 
 // Add interceptor to add auth token to requests
@@ -148,6 +148,10 @@ export const authAPI = {
       },
       timeout: 5000,
     });
+  },
+  
+  logout: () => {
+    return api.post('/auth/logout', {});
   },
   // В данном API регистрация не предусмотрена через отдельный метод
 };
@@ -504,6 +508,85 @@ export const equipmentAPI = {
   delete: (id) => api.delete(`/equipment/${id}`),
   addMaintenance: (id, data) => api.post(`/equipment/${id}/maintenance`, data),
   getHistory: (id) => api.get(`/equipment/${id}/history`),
+};
+
+// API для аудит-логов
+export const auditLogsAPI = {
+  // Получение списка аудит-логов с возможностью фильтрации
+  getAll: (params = {}) => {
+    // Чистим undefined значения
+    const cleanParams = { ...params };
+    Object.keys(cleanParams).forEach(key => {
+      if (cleanParams[key] === undefined) {
+        delete cleanParams[key];
+      }
+    });
+    
+    // Добавляем параметр для обхода кэша - для логов важны актуальные данные
+    cleanParams._nocache = new Date().getTime();
+    
+    return api.get('/audit-logs/', { 
+      params: cleanParams,
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
+  },
+  
+  // Получение уникальных значений типов действий
+  getActionTypes: () => {
+    return api.get('/audit-logs/action-types', {
+      headers: {
+        'Cache-Control': 'max-age=3600'  // Эти данные можно кэшировать
+      }
+    });
+  }
+};
+
+// API для работы с журналом аудита
+export const auditAPI = {
+  getAll: (params = {}) => {
+    // Очищаем параметры от пустых значений
+    const cleanParams = { ...params };
+    Object.keys(cleanParams).forEach(key => {
+      if (cleanParams[key] === undefined || cleanParams[key] === '') {
+        delete cleanParams[key];
+      }
+    });
+    
+    console.log('Отправляем запрос к API аудита с параметрами:', cleanParams);
+    
+    return api.get('/audit-logs/', { 
+      params: cleanParams,
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      },
+      // Увеличиваем таймаут конкретно для запроса аудит-логов
+      timeout: 40000
+    })
+    .then(response => {
+      console.log('Успешно получены данные аудита:', response.data.length, 'записей');
+      return response;
+    })
+    .catch(error => {
+      console.error('Ошибка при получении данных аудита:', error.message);
+      if (error.code === 'ECONNABORTED') {
+        console.error('Превышено время ожидания ответа от сервера (таймаут)');
+      } else if (error.response) {
+        console.error('Статус ошибки:', error.response.status);
+        console.error('Сообщение сервера:', error.response.data);
+      } else if (error.request) {
+        console.error('Ошибка запроса, ответ не получен:', error.request);
+      }
+      throw error;
+    });
+  },
+  getById: (id) => api.get(`/audit-logs/${id}`),
+  // WebSocket соединение будет настраиваться отдельно
 };
 
 export default api;

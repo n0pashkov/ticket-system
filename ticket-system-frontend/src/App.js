@@ -16,6 +16,7 @@ import CreateTicketPage from './pages/CreateTicketPage';
 import ProfilePage from './pages/ProfilePage';
 import ManageUsersPage from './pages/ManageUsersPage';
 import EquipmentManagementPage from './pages/EquipmentManagementPage';
+import AuditLogsPage from './pages/AuditLogsPage';
 
 // Компоненты
 import Layout from './components/Layout';
@@ -98,6 +99,36 @@ const MainPage = () => {
   }
 };
 
+// Маршрутизация для авторизованных пользователей
+const protectedRoutes = [
+  {
+    path: '/dashboard',
+    element: <DashboardPage />
+  },
+  {
+    path: '/tickets',
+    element: <TicketsPage />
+  },
+  {
+    path: '/tickets/:id',
+    element: <TicketDetailsPage />
+  },
+  {
+    path: '/create-ticket',
+    element: <CreateTicketPage />
+  },
+  {
+    path: '/users',
+    element: <ManageUsersPage />,
+    adminOnly: true  // Ограничение доступа только для админов
+  },
+  {
+    path: '/audit-logs',
+    element: <AuditLogsPage />,
+    adminOnly: true  // Ограничение доступа только для админов - логи видны только админам
+  }
+];
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -133,6 +164,7 @@ function App() {
                   <Route path="/admin/users" element={<ManageUsersPage />} />
                   <Route path="/admin/categories" element={<Navigate to="/admin/equipment" replace />} />
                   <Route path="/admin/equipment" element={<EquipmentManagementPage />} />
+                  <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
                 </Route>
               </Route>
 
