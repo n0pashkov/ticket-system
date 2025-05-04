@@ -378,3 +378,248 @@ async def create_entity(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error creating entity"
         ) 
+
+## Управление структурой проекта и предотвращение дублирования
+
+Данный раздел описывает практики управления структурой проекта для предотвращения дублирования кода и файлов, что является важным аспектом оптимизации.
+
+### Структура проекта и назначение директорий
+
+#### Backend (Python/FastAPI)
+
+```
+app/
+├── api/                # API эндпоинты
+│   ├── api.py          # Основной маршрутизатор API
+│   └── endpoints/      # Эндпоинты группированные по функциональности
+│       ├── auth.py     # Аутентификация
+│       ├── tickets.py  # Заявки
+│       ├── users.py    # Пользователи
+│       ├── categories.py # Категории
+│       └── equipment.py # Оборудование
+├── core/               # Ядро приложения
+│   ├── config.py       # Настройки
+│   ├── security.py     # Безопасность и аутентификация
+│   └── logging.py      # Настройки логирования
+├── db/                 # Взаимодействие с базой данных
+│   ├── database.py     # Синхронные операции с БД
+│   └── async_database.py # Асинхронные операции с БД
+├── models/             # Модели данных
+│   └── models.py       # ORM модели 
+└── schemas/            # Схемы данных (Pydantic)
+    └── schemas.py      # Схемы валидации и сериализации
+```
+
+#### Frontend (React/Material UI)
+
+```
+src/
+├── api/              # API-клиенты
+│   └── api.js        # Все API-клиенты в одном месте
+├── components/       # Переиспользуемые компоненты
+├── context/          # React контексты
+│   ├── AuthContext.js    # Аутентификация
+│   └── ThemeContext.js   # Темы оформления
+├── hooks/            # Кастомные React хуки
+├── pages/            # Страницы приложения
+├── utils/            # Вспомогательные функции
+└── App.js            # Основной компонент приложения
+```
+
+### Правила организации и расширения кода
+
+1. **Один файл - одна ответственность:**
+   - **Backend:** каждый файл в `endpoints/` отвечает за конкретную сущность
+   - **Frontend:** каждый хук в `hooks/` отвечает за конкретный тип данных
+
+2. **Расширение существующих файлов вместо создания новых:**
+   - **Backend:** добавляйте новые эндпоинты в существующие файлы, если они относятся к той же сущности
+   - **Frontend:** добавляйте новые API-методы в существующие объекты в `api.js`
+
+3. **Принцип DRY (Don't Repeat Yourself):**
+   - Создавайте общие утилиты для повторяющихся операций
+   - Используйте наследование и композицию для переиспользования кода
+
+### Предотвращение дублирования файлов и функциональности
+
+#### Backend
+
+1. **Регистрация маршрутов:**
+   - Всегда добавляйте новые маршрутизаторы эндпоинтов в `app/api/api.py`:
+   ```python
+   # app/api/api.py
+   from fastapi import APIRouter
+   from app.api.endpoints import users, tickets, auth, categories, equipment
+   
+   api_router = APIRouter()
+   api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
+   api_router.include_router(users.router, prefix="/users", tags=["users"])
+   api_router.include_router(tickets.router, prefix="/tickets", tags=["tickets"])
+   api_router.include_router(categories.router, prefix="/categories", tags=["categories"])
+   api_router.include_router(equipment.router, prefix="/equipment", tags=["equipment"])
+   ```
+
+2. **Импорт зависимостей:**
+   - Используйте существующие зависимости из `app/core/` вместо создания новых:
+   ```python
+   # Используйте существующий функционал безопасности
+   from app.core.security import get_password_hash, verify_password
+   
+   # Используйте существующий логгер
+   from app.core.logging import get_logger
+   logger = get_logger("api.equipment")
+   ```
+
+3. **Асинхронные операции с БД:**
+   - Используйте единый подход к асинхронным операциям из `app/db/async_database.py`:
+   ```python
+   from app.db.async_database import get_async_db
+   
+   @router.get("/")
+   async def get_items(db: AsyncSession = Depends(get_async_db)):
+       # Асинхронные операции
+   ```
+
+#### Frontend
+
+1. **API-клиенты:**
+   - Не создавайте новые файлы для API-клиентов, добавляйте их в существующий `api.js`:
+   ```javascript
+   // src/api/api.js
+   // НЕ СОЗДАВАЙТЕ ОТДЕЛЬНЫЙ ФАЙЛ equipment-api.js!
+   
+   // Добавляйте новые объекты или расширяйте существующие
+   export const equipmentAPI = {
+     getAll: () => api.get('/equipment/'),
+     getById: (id) => api.get(`/equipment/${id}`),
+     create: (data) => api.post('/equipment/', data),
+     update: (id, data) => api.put(`/equipment/${id}`, data),
+     delete: (id) => api.delete(`/equipment/${id}`),
+   };
+   ```
+
+2. **React Query хуки:**
+   - Для каждого типа данных должен быть только один файл хука:
+   ```javascript
+   // src/hooks/useEquipment.js
+   // Один файл для всех операций с оборудованием
+   
+   export const useEquipment = (params = {}) => {
+     // Запросы и мутации для оборудования
+     
+     return {
+       equipment,
+       isLoading,
+       createEquipment,
+       updateEquipment,
+       deleteEquipment,
+     };
+   };
+   ```
+
+3. **Темы оформления:**
+   - Используйте `ThemeContext.js` для управления темами, не создавайте отдельные файлы тем:
+   ```javascript
+   // НЕ СОЗДАВАЙТЕ ОТДЕЛЬНЫЙ ФАЙЛ theme.js!
+   // Вместо этого используйте существующий контекст
+   
+   import { useTheme } from '@mui/material';
+   import { useThemeMode } from '../context/ThemeContext';
+   
+   const Component = () => {
+     const theme = useTheme();
+     const { darkMode, toggleTheme } = useThemeMode();
+     // ...
+   };
+   ```
+
+### Примеры неправильного и оптимального кода
+
+#### Backend
+
+❌ **Неправильно: Дублирование настроек безопасности**
+```python
+# app/api/endpoints/my_custom_endpoint.py
+# НЕ ДУБЛИРУЙТЕ КОД БЕЗОПАСНОСТИ
+import jwt
+from datetime import datetime, timedelta
+
+SECRET_KEY = "my_secret_key"
+
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(minutes=30)
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm="HS256")
+```
+
+✅ **Правильно: Использование существующего функционала**
+```python
+# app/api/endpoints/my_custom_endpoint.py
+from app.core.security import create_access_token
+
+@router.post("/token")
+async def create_token(user_data: dict):
+    token = create_access_token({"sub": user_data["username"]})
+    return {"access_token": token}
+```
+
+#### Frontend
+
+❌ **Неправильно: Создание нового хука с дублированием функциональности**
+```javascript
+// src/hooks/useEquipmentList.js - НЕ СОЗДАВАЙТЕ ЭТОТ ФАЙЛ!
+import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
+
+export const useEquipmentList = () => {
+  const fetchEquipment = () => axios.get('/api/v1/equipment/');
+  
+  return useQuery(['equipment'], fetchEquipment);
+};
+```
+
+✅ **Правильно: Использование и расширение существующего хука**
+```javascript
+// src/hooks/useEquipment.js - ИСПОЛЬЗУЙТЕ ЭТОТ ФАЙЛ
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { equipmentAPI } from '../api/api';
+
+export const useEquipment = (params = {}) => {
+  // Запрос списка оборудования
+  const equipmentQuery = useQuery({
+    queryKey: ['equipment', params],
+    queryFn: () => equipmentAPI.getAll(params),
+    // Настройки оптимизации...
+  });
+  
+  // Добавляйте необходимые мутации здесь
+  
+  return {
+    equipment: equipmentQuery.data || [],
+    isLoading: equipmentQuery.isLoading,
+    error: equipmentQuery.error,
+    // Другие функции и свойства...
+  };
+};
+```
+
+### Контрольный список перед добавлением новой функциональности
+
+1. **Проверка существующих файлов:**
+   - Существует ли уже файл для работы с целевой сущностью?
+   - Можно ли добавить новую функциональность в существующий файл?
+
+2. **Оценка размера и ответственности:**
+   - Если файл слишком большой, можно ли его разделить по логическим группам?
+   - Придерживается ли новый код принципу единой ответственности?
+
+3. **Проверка импортов:**
+   - Нет ли циклических зависимостей при добавлении нового функционала?
+   - Используются ли оптимальные импорты для снижения объема кода?
+
+4. **Тестирование обратной совместимости:**
+   - Не нарушает ли новый код существующую функциональность?
+   - Все ли существующие тесты проходят после изменений?
+
+Следуя этим принципам, вы поможете поддерживать чистоту кодовой базы, облегчите добавление новых функций и избежите проблем с дублированием кода, что в свою очередь повысит производительность и упростит поддержку приложения. 

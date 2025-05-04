@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTicket } from '../hooks/useTickets';
 import { ticketsAPI } from '../api/api';
 import { useUsers } from '../hooks/useUsers';
+import { useEquipmentByCategory } from '../hooks/useEquipment';
+import { categoriesAPI } from '../api/api';
 import EditIcon from '@mui/icons-material/Edit';
 
 // Material UI компоненты
@@ -52,7 +54,9 @@ import {
   AssignmentInd as AssignmentIndIcon,
   Room as RoomIcon,
   Message as MessageIcon,
-  Comment as CommentIcon
+  Comment as CommentIcon,
+  Category as CategoryIcon,
+  Devices as DevicesIcon
 } from '@mui/icons-material';
 
 // Функция для форматирования статуса
@@ -99,6 +103,9 @@ const TicketDetailsPage = () => {
     description: '',
     room_number: ''
   });
+  const [category, setCategory] = useState(null);
+  const [categoryLoading, setCategoryLoading] = useState(false);
+  const [categoryError, setCategoryError] = useState(null);
 
   const { 
     ticket, 
@@ -107,6 +114,33 @@ const TicketDetailsPage = () => {
     error
   } = useTicket(id);
   
+  // Получаем оборудование связанное с категорией
+  const { 
+    equipment: allEquipmentInCategory, 
+    isLoading: equipmentLoading, 
+    isError: equipmentError 
+  } = useEquipmentByCategory(ticket?.category_id);
+  
+  // Получаем все оборудование из категории, но отмечаем связанное с заявкой
+  const equipment = useMemo(() => {
+    console.log("Данные заявки для фильтрации оборудования:", ticket);
+    console.log("ID оборудования в заявке:", ticket?.equipment_id);
+    console.log("Доступное оборудование категории:", allEquipmentInCategory);
+    
+    // Если нет данных оборудования категории, возвращаем пустой массив
+    if (!allEquipmentInCategory || !Array.isArray(allEquipmentInCategory)) {
+      console.log("Нет данных оборудования категории");
+      return [];
+    }
+
+    // Создаем копию массива оборудования и добавляем флаг isRelatedToTicket,
+    // который показывает, привязано ли это оборудование к текущей заявке
+    return allEquipmentInCategory.map(item => ({
+      ...item,
+      isRelatedToTicket: Number(ticket?.equipment_id) === Number(item.id)
+    }));
+  }, [ticket, allEquipmentInCategory]);
+
   // Функция загрузки сообщений (обернутая в useCallback)
   const loadMessages = useCallback(async () => {
     if (!id) return;
@@ -121,6 +155,23 @@ const TicketDetailsPage = () => {
       setLoadingMessages(false);
     }
   }, [id]);
+
+  // Функция загрузки категории
+  const loadCategory = useCallback(async () => {
+    if (!ticket?.category_id) return;
+    
+    try {
+      setCategoryLoading(true);
+      setCategoryError(null);
+      const response = await categoriesAPI.getById(ticket.category_id);
+      setCategory(response.data);
+    } catch (err) {
+      console.error('Ошибка при загрузке категории:', err);
+      setCategoryError('Не удалось загрузить информацию о категории');
+    } finally {
+      setCategoryLoading(false);
+    }
+  }, [ticket?.category_id]);
 
   // Получение тикета из кэша
   useEffect(() => {
@@ -141,8 +192,11 @@ const TicketDetailsPage = () => {
       
       // Загружаем сообщения заявки
       loadMessages();
+      
+      // Загружаем категорию заявки
+      loadCategory();
     }
-  }, [ticket, loadMessages]);
+  }, [ticket, loadMessages, loadCategory]);
 
   // Форматирование даты
   const formatDate = (dateString) => {
@@ -596,6 +650,204 @@ const TicketDetailsPage = () => {
                 ) : (
                   <Typography variant="body2" color="textSecondary">
                     Исполнитель не назначен
+                  </Typography>
+                )}
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Категория и оборудование */}
+        <Grid item xs={12}>
+          <Card 
+            sx={{ 
+              borderRadius: 4, 
+              overflow: 'hidden',
+              boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+              mb: 3,
+              width: '100%'
+            }}
+          >
+            <CardContent sx={{ p: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+                <CategoryIcon sx={{ mr: 1, color: 'action.active' }} />
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  Категория и оборудование
+                </Typography>
+              </Box>
+              <Divider sx={{ mb: 2 }} />
+              
+              {/* Информация о категории */}
+              <Box sx={{ mb: 3 }}>
+                {categoryLoading ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <CircularProgress size={20} sx={{ mr: 1 }} />
+                    <Typography variant="body2">Загрузка категории...</Typography>
+                  </Box>
+                ) : categoryError ? (
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    {categoryError}
+                  </Alert>
+                ) : category ? (
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                      Категория:
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', mb: 2 }}>
+                      <Typography variant="body1" sx={{ fontWeight: 500, wordBreak: 'break-word' }}>
+                        {category.name}
+                      </Typography>
+                      {category.description && (
+                        <Typography variant="body2" color="text.secondary" sx={{ wordBreak: 'break-word' }}>
+                          {category.description}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    Категория не указана
+                  </Typography>
+                )}
+              </Box>
+
+              {/* Информация об оборудовании */}
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                  {(() => {
+                    if (equipment && equipment.filter(item => item.isRelatedToTicket).length > 0) {
+                      return "Оборудование, связанное с заявкой:";
+                    }
+                    return "Связанное оборудование:";
+                  })()}
+                </Typography>
+                
+                {equipmentLoading ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <CircularProgress size={20} sx={{ mr: 1 }} />
+                    <Typography variant="body2">Загрузка оборудования...</Typography>
+                  </Box>
+                ) : equipmentError ? (
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    Не удалось загрузить данные об оборудовании
+                  </Alert>
+                ) : equipment && equipment.length > 0 ? (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                    {(() => {
+                      const relatedEquipment = equipment.filter(item => item.isRelatedToTicket);
+                      if (relatedEquipment.length === 0) {
+                        return (
+                          <Typography variant="body2" color="text.secondary">
+                            Нет связанного оборудования для этой заявки
+                          </Typography>
+                        );
+                      }
+                      return relatedEquipment.map((item) => (
+                        <Paper 
+                          key={item.id}
+                          sx={{ 
+                            p: 2, 
+                            borderRadius: 2, 
+                            border: '1px solid',
+                            borderColor: 'primary.main',
+                            width: { xs: '100%', sm: 'calc(50% - 8px)', md: 'calc(50% - 8px)' },
+                            display: 'flex',
+                            flexDirection: 'column',
+                            minWidth: 250,
+                            backgroundColor: 'rgba(25, 118, 210, 0.05)',
+                            position: 'relative'
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, width: '100%' }}>
+                            <DevicesIcon fontSize="small" sx={{ 
+                              mr: 1, 
+                              color: 'primary.main', 
+                              flexShrink: 0 
+                            }} />
+                            <Typography 
+                              variant="subtitle2" 
+                              sx={{ 
+                                fontWeight: 700,
+                                wordBreak: 'break-word',
+                                color: 'primary.main'
+                              }}
+                            >
+                              {item.name}
+                            </Typography>
+                          </Box>
+                          
+                          <Box sx={{ mb: 'auto', width: '100%' }}>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', mb: 1 }}>
+                              <Typography variant="body2" component="span" sx={{ fontWeight: 500 }}>
+                                Модель:
+                              </Typography>
+                              <Typography variant="body2" component="span" sx={{ 
+                                color: item.model ? 'text.primary' : 'text.secondary',
+                                wordBreak: 'break-word'
+                              }}>
+                                {item.model || 'Не указана'}
+                              </Typography>
+                            </Box>
+                            
+                            <Box sx={{ display: 'flex', flexDirection: 'column', mb: 1 }}>
+                              <Typography variant="body2" component="span" sx={{ fontWeight: 500 }}>
+                                S/N:
+                              </Typography>
+                              <Typography variant="body2" component="span" sx={{ 
+                                color: item.serial_number ? 'text.primary' : 'text.secondary',
+                                wordBreak: 'break-word'
+                              }}>
+                                {item.serial_number || 'Не указан'}
+                              </Typography>
+                            </Box>
+                            
+                            <Box sx={{ display: 'flex', flexDirection: 'column', mb: 1 }}>
+                              <Typography variant="body2" component="span" sx={{ fontWeight: 500 }}>
+                                Местоположение:
+                              </Typography>
+                              <Typography variant="body2" component="span" sx={{ 
+                                color: item.location ? 'text.primary' : 'text.secondary',
+                                wordBreak: 'break-word'
+                              }}>
+                                {item.location || 'Не указано'}
+                              </Typography>
+                            </Box>
+                          </Box>
+                          
+                          {item.status && (
+                            <Chip 
+                              label={item.status === 'working' ? 'Работает' : 
+                                     item.status === 'maintenance' ? 'На обслуживании' : 
+                                     item.status === 'broken' ? 'Неисправен' : 
+                                     item.status === 'active' ? 'Активен' : item.status}
+                              size="small"
+                              color={
+                                item.status === 'working' || item.status === 'active' ? 'success' :
+                                item.status === 'maintenance' ? 'warning' :
+                                item.status === 'broken' ? 'error' : 'default'
+                              }
+                              sx={{ 
+                                mt: 1,
+                                alignSelf: 'flex-start',
+                                minWidth: 90,
+                                maxWidth: '100%',
+                                whiteSpace: 'normal',
+                                height: 'auto',
+                                '& .MuiChip-label': { 
+                                  whiteSpace: 'normal',
+                                  padding: '4px 8px',
+                                  overflow: 'visible'
+                                }
+                              }}
+                            />
+                          )}
+                        </Paper>
+                      ));
+                    })()}
+                  </Box>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    Нет связанного оборудования
                   </Typography>
                 )}
               </Box>

@@ -99,7 +99,7 @@ class User(Base):
 
 
 # Импортируем Ticket из отдельного модуля
-from app.models.ticket import Ticket
+# from app.models.ticket import Ticket
 
 
 # Модель категории заявок
@@ -146,6 +146,9 @@ class Ticket(Base):
     # Внешний ключ на категорию
     category_id = Column(Integer, ForeignKey("ticket_categories.id"), nullable=True)
     category = relationship("TicketCategory", back_populates="tickets", lazy="selectin")
+    
+    # Внешний ключ на оборудование
+    equipment_id = Column(Integer, ForeignKey("equipment.id"), nullable=True)
     
     # Связь с вложениями
     attachments = relationship("Attachment", back_populates="ticket", cascade="all, delete-orphan", lazy="selectin")

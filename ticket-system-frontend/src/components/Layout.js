@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { 
   AppBar, Toolbar, Typography, IconButton, 
   Drawer, List, ListItem, ListItemIcon, ListItemText, ListItemButton,
@@ -18,12 +18,13 @@ import PeopleIcon from '@mui/icons-material/People';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
+import ComputerIcon from '@mui/icons-material/Computer';
 import { useAuth } from '../context/AuthContext';
 import { useThemeMode } from '../context/ThemeContext';
 
 const drawerWidth = 280;
 
-const Layout = ({ children }) => {
+const Layout = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { darkMode, toggleTheme } = useThemeMode();
   const { user, logout } = useAuth();
@@ -40,10 +41,9 @@ const Layout = ({ children }) => {
 
   // Определяем текущую активную вкладку для нижней навигации
   const getNavValue = () => {
-    if (location.pathname === '/') return 0;
+    if (location.pathname === '/' || location.pathname === '/admin' || location.pathname === '/agent') return 0;
     if (location.pathname.startsWith('/tickets')) return 1;
     if (location.pathname === '/profile') return 2;
-    if (location.pathname === '/settings') return 3;
     return 0;
   };
 
@@ -101,30 +101,37 @@ const Layout = ({ children }) => {
   const baseMenuItems = [
     { text: 'Информационная панель', icon: <DashboardIcon />, path: '/' },
     { text: 'Заявки', icon: <ConfirmationNumberIcon />, path: '/tickets' },
+    { text: 'Создать заявку', icon: <AddCircleIcon />, path: '/tickets/create' },
     { text: 'Профиль', icon: <PersonIcon />, path: '/profile' },
-    { text: 'Настройки', icon: <SettingsIcon />, path: '/settings' },
   ];
   
   // Пункты меню для обычных пользователей
-  const userMenuItems = [
-    { text: 'Создать заявку', icon: <AddCircleIcon />, path: '/tickets/new' },
-  ];
+  const userMenuItems = [];
   
   // Пункты меню для администраторов
   const adminMenuItems = [
-    { text: 'Управление категориями', icon: <CategoryIcon />, path: '/category-management' },
-    { text: 'Управление пользователями', icon: <PeopleIcon />, path: '/manage-users' },
+    { text: 'Управление пользователями', icon: <PeopleIcon />, path: '/admin/users' },
+    { text: 'Управление оборудованием', icon: <ComputerIcon />, path: '/admin/equipment' },
   ];
   
   // Формируем итоговый список пунктов меню в зависимости от роли
   let menuItems = [...baseMenuItems];
+  let adminSectionItems = []; // Для отдельной секции админ-панели
   
   if (user?.role === 'admin') {
-    menuItems = [...baseMenuItems, ...userMenuItems];
+    menuItems = [
+      { text: 'Панель администратора', icon: <DashboardIcon />, path: '/' },
+      ...baseMenuItems.filter(item => item.path !== '/'),
+    ];
+    // Сохраняем админ-пункты для отдельной секции
+    adminSectionItems = [...adminMenuItems];
   } else if (user?.role === 'agent') {
-    menuItems = [...baseMenuItems];
+    menuItems = [
+      { text: 'Панель специалиста', icon: <DashboardIcon />, path: '/' },
+      ...baseMenuItems.filter(item => item.path !== '/'),
+    ];
   } else {
-    menuItems = [...baseMenuItems, ...userMenuItems];
+    menuItems = [...baseMenuItems];
   }
 
   const drawer = (
@@ -239,7 +246,7 @@ const Layout = ({ children }) => {
           })}
         </List>
 
-        {user?.role === 'admin' && (
+        {user?.role === 'admin' && adminSectionItems.length > 0 && (
           <>
             <Typography 
               variant="overline" 
@@ -256,7 +263,7 @@ const Layout = ({ children }) => {
             </Typography>
             
             <List sx={{ mt: 1 }}>
-              {adminMenuItems.map((item) => {
+              {adminSectionItems.map((item) => {
                 const isActive = activeItem === item.path;
                 
                 return (
@@ -371,11 +378,12 @@ const Layout = ({ children }) => {
             {/* Название текущей страницы */}
             {location.pathname === '/' && 'Информационная панель'}
             {location.pathname === '/tickets' && 'Заявки'}
+            {location.pathname === '/tickets/create' && 'Создание заявки'}
             {location.pathname === '/profile' && 'Профиль'}
-            {location.pathname === '/settings' && 'Настройки'}
-            {location.pathname === '/tickets/new' && 'Создание заявки'}
-            {location.pathname === '/category-management' && 'Управление категориями'}
-            {location.pathname === '/manage-users' && 'Управление пользователями'}
+            {location.pathname === '/admin' && 'Панель администратора'}
+            {location.pathname === '/admin/users' && 'Управление пользователями'}
+            {location.pathname === '/admin/equipment' && 'Управление оборудованием'}
+            {location.pathname === '/agent' && 'Панель специалиста'}
           </Typography>
 
           {/* Иконка переключения темы */}
@@ -430,7 +438,7 @@ const Layout = ({ children }) => {
       >
         <Toolbar />
         <Container maxWidth="lg" disableGutters>
-          {children}
+          <Outlet />
         </Container>
       </Box>
 
@@ -454,6 +462,7 @@ const Layout = ({ children }) => {
             onChange={(event, newValue) => {
               switch(newValue) {
                 case 0:
+                  // Всегда перенаправляем на главную страницу
                   navigate('/');
                   break;
                 case 1:
@@ -461,9 +470,6 @@ const Layout = ({ children }) => {
                   break;
                 case 2:
                   navigate('/profile');
-                  break;
-                case 3:
-                  navigate('/settings');
                   break;
                 default:
                   break;
@@ -480,7 +486,6 @@ const Layout = ({ children }) => {
               icon={<ConfirmationNumberIcon />} 
             />
             <BottomNavigationAction label="Профиль" icon={<PersonIcon />} />
-            <BottomNavigationAction label="Настройки" icon={<SettingsIcon />} />
           </BottomNavigation>
         </Paper>
       )}

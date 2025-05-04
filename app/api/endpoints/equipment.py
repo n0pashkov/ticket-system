@@ -2,9 +2,10 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 from datetime import datetime
+import logging
 
 from app.db.database import get_db
-from app.models.models import Equipment, User, UserRole, Maintenance, EquipmentStatus
+from app.models.models import Equipment, User, UserRole, Maintenance, EquipmentStatus, TicketCategory
 from app.core.security import get_current_active_user
 from app.core.dependencies import get_current_agent_or_admin
 from app.schemas.schemas import Equipment as EquipmentSchema
@@ -21,6 +22,7 @@ def get_equipment_list(
     limit: int = 100,
     type: Optional[str] = None,
     category: Optional[str] = None,
+    category_id: Optional[int] = None,
     location: Optional[str] = None,
     status: Optional[str] = None,
     db: Session = Depends(get_db),
@@ -28,20 +30,48 @@ def get_equipment_list(
 ):
     """
     Получение списка оборудования с возможностью фильтрации
+    
+    - type: тип оборудования 
+    - category: альтернативное название для type
+    - category_id: ID категории (если указан, ищем оборудование по типу, соответствующему категории)
+    - location: местоположение
+    - status: статус оборудования
     """
+    logger = logging.getLogger("app.api.equipment")
+    
+    logger.info(f"Запрос оборудования с параметрами: type={type}, category={category}, category_id={category_id}, location={location}, status={status}")
+    
     query = db.query(Equipment)
     
-    # Применяем фильтры, если они указаны
-    if type:
+    # Если указан category_id, получаем название категории и фильтруем по нему
+    if category_id:
+        category_query = db.query(TicketCategory).filter(TicketCategory.id == category_id).first()
+        if category_query:
+            category_name = category_query.name
+            logger.info(f"Найдена категория {category_id}: {category_name}")
+            query = query.filter(Equipment.type == category_name)
+        else:
+            logger.warning(f"Категория с ID {category_id} не найдена")
+    # Иначе применяем стандартные фильтры
+    elif type:
+        logger.info(f"Фильтрация по типу: {type}")
         query = query.filter(Equipment.type == type)
     elif category:  # Используем category как альтернативу type
+        logger.info(f"Фильтрация по категории: {category}")
         query = query.filter(Equipment.type == category)
+    
     if location:
+        logger.info(f"Фильтрация по местоположению: {location}")
         query = query.filter(Equipment.location == location)
     if status:
+        logger.info(f"Фильтрация по статусу: {status}")
         query = query.filter(Equipment.status == status)
     
     equipment = query.offset(skip).limit(limit).all()
+    logger.info(f"Найдено оборудования: {len(equipment)}")
+    for item in equipment:
+        logger.info(f"Оборудование: ID={item.id}, Название={item.name}, Тип={item.type}")
+    
     return equipment
 
 
@@ -289,4 +319,43 @@ def add_maintenance_record(
         "maintenance_type": new_maintenance.action_type  # Добавляем поле maintenance_type
     }
     
-    return result 
+    return result
+
+
+@router.get("/debug/by-category/{category_id}", response_model=List[EquipmentSchema])
+def get_equipment_by_category_debug(
+    category_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Отладочный эндпоинт для получения оборудования по ID категории
+    """
+    logger = logging.getLogger("app.api.equipment")
+    
+    logger.info(f"Отладочный запрос оборудования по category_id={category_id}")
+    
+    # Получаем категорию
+    category = db.query(TicketCategory).filter(TicketCategory.id == category_id).first()
+    
+    if not category:
+        logger.warning(f"Категория с ID {category_id} не найдена")
+        return []
+    
+    logger.info(f"Найдена категория ID={category.id}, название={category.name}")
+    
+    # Получаем оборудование по категории (типу)
+    equipment = db.query(Equipment).filter(Equipment.type == category.name).all()
+    
+    logger.info(f"Найдено оборудования: {len(equipment)}")
+    for item in equipment:
+        logger.info(f"Оборудование: ID={item.id}, Name={item.name}, Type={item.type}")
+    
+    # Проверяем все оборудование
+    all_equipment = db.query(Equipment).all()
+    logger.info(f"Всего оборудования в БД: {len(all_equipment)}")
+    logger.info("Типы оборудования в БД:")
+    for type_name in set(item.type for item in all_equipment if item.type):
+        logger.info(f"- {type_name}")
+    
+    return equipment 

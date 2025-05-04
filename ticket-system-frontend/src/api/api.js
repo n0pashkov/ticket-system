@@ -4,7 +4,7 @@ import axios from 'axios';
 const baseURL = 'http://localhost:8000/api/v1';
 
 // Create an axios instance
-const api = axios.create({
+export const api = axios.create({
   baseURL: baseURL,
   headers: {
     'Content-Type': 'application/json',
@@ -31,6 +31,9 @@ api.interceptors.request.use(
         config.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
         config.headers['Pragma'] = 'no-cache';
         config.headers['Expires'] = '0';
+        // Добавляем случайный параметр для обхода кэша
+        if (!config.params) config.params = {};
+        config.params._nocache = new Date().getTime();
       }
       // Для GET-запросов разрешаем кэширование
       else if (config.url.includes('/categories')) {
@@ -75,7 +78,24 @@ api.interceptors.response.use(
     // Если получаем 401 Unauthorized, значит токен истек или недействителен
     if (error.response && error.response.status === 401) {
       console.error('Unauthorized access detected, clearing token');
-      localStorage.removeItem('token');
+      
+      // Вызываем функцию очистки данных авторизации
+      clearAuthData();
+      
+      // Если пользователь пытался получить свои данные, перезагружаем страницу
+      // для перенаправления на страницу входа
+      if (error.config.url.includes('/users/me')) {
+        console.log('Session expired, redirecting to login...');
+        // Добавляем сообщение в sessionStorage
+        sessionStorage.setItem('auth_error', 'Сессия истекла. Пожалуйста, войдите снова.');
+        
+        // Если мы не на странице входа, перенаправляем
+        if (!window.location.pathname.includes('/login')) {
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 100);
+        }
+      }
     }
     
     return Promise.reject(error);
@@ -87,14 +107,25 @@ const authBaseURL = 'http://localhost:8000';
 
 // Функция для очистки авторизационных данных
 export const clearAuthData = () => {
+  // Очищаем localStorage
   localStorage.removeItem('token');
+  localStorage.removeItem('auth_retry_count');
+  
+  // Очищаем sessionStorage, относящийся к авторизации
+  sessionStorage.removeItem('user_data_backup');
   
   // Очищаем кэш для API запросов, связанных с авторизацией
   if (window.caches) {
     caches.keys().then(names => {
       names.forEach(name => {
-        caches.delete(name);
+        // Избирательно очищаем кэш только относящийся к API вызовам
+        if (name.includes('api') || name.includes('http')) {
+          console.log('Clearing cache:', name);
+          caches.delete(name);
+        }
       });
+    }).catch(err => {
+      console.error('Failed to clear caches:', err);
     });
   }
 };
@@ -190,7 +221,26 @@ export const ticketsAPI = {
     // Добавляем случайный параметр для предотвращения кэширования
     cleanFilters._nocache = new Date().getTime();
     
-    return api.get('/tickets/', { 
+    // Проверяем, является ли фильтр путем или параметром запроса
+    let url = '/tickets/';
+    
+    // Если в фильтрах указан статус, который начинается с '/', 
+    // это означает, что запрос был отправлен неправильно
+    // В этом случае нужно преобразовать его в параметр запроса
+    if (cleanFilters.path && typeof cleanFilters.path === 'string') {
+      // Если запрошен статус через путь, преобразуем его в параметр запроса
+      if (cleanFilters.path === '/new') {
+        // Удаляем путь и создаем параметр status
+        delete cleanFilters.path;
+        cleanFilters.status = 'new';
+      } else {
+        // Если это другой путь, используем его
+        url = `/tickets${cleanFilters.path}`;
+        delete cleanFilters.path;
+      }
+    }
+    
+    return api.get(url, { 
       params: cleanFilters,
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -234,14 +284,36 @@ export const ticketsAPI = {
         throw error;
       });
   },
-  getById: (id) => api.get(`/tickets/${id}`, {
-    params: { _nocache: new Date().getTime() },
-    headers: {
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
-      'Pragma': 'no-cache',
-      'Expires': '0'
+  getById: (id) => {
+    // Если ID равен 'new', это означает, что мы хотим получить форму для создания новой заявки
+    // Возвращаем пустой объект, чтобы избежать запроса к API
+    if (id === 'new') {
+      console.log('Запрос формы для создания новой заявки');
+      return Promise.resolve({ 
+        data: {
+          id: 'new',
+          title: '',
+          description: '',
+          status: 'new',
+          priority: 'medium',
+          creator_id: null,
+          assigned_to_id: null,
+          created_at: null,
+          updated_at: null
+        } 
+      });
     }
-  }),
+    
+    // Обычный запрос для получения существующей заявки по ID
+    return api.get(`/tickets/${id}`, {
+      params: { _nocache: new Date().getTime() },
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
+  },
   create: (ticketData) => {
     console.log('Создание заявки с данными:', ticketData);
     return api.post('/tickets/', ticketData)
@@ -315,15 +387,20 @@ export const ticketsAPI = {
 // API для категорий заявок
 export const categoriesAPI = {
   getAll: (params = {}) => api.get('/categories/', { 
-    params,
+    params: {
+      ...params,
+      show_all: params.show_all || false, // По умолчанию показываем только активные (show_all=false)
+      // Добавляем случайную строку для обхода кэширования
+      nocache: new Date().getTime() 
+    },
     headers: {
-      // Для категорий явно указываем долгое кэширование
-      'Cache-Control': 'max-age=3600, stale-while-revalidate=120'
+      // Уменьшаем время кэширования для быстрого обновления данных
+      'Cache-Control': 'max-age=10, stale-while-revalidate=5'
     }
   }),
   getById: (id) => api.get(`/categories/${id}`, {
     headers: {
-      'Cache-Control': 'max-age=3600, stale-while-revalidate=120'
+      'Cache-Control': 'max-age=10, stale-while-revalidate=5'
     }
   }),
   create: (categoryData) => api.post('/categories/', categoryData, {
@@ -366,6 +443,67 @@ export const statisticsAPI = {
       'Cache-Control': 'max-age=600, stale-while-revalidate=60'
     }
   }),
+};
+
+// API для работы с оборудованием
+export const equipmentAPI = {
+  getAll: (params = {}) => {
+    // Добавляем случайный параметр для предотвращения кэширования
+    const nocacheParams = { 
+      ...params,
+      _nocache: new Date().getTime() 
+    };
+    return api.get('/equipment/', { 
+      params: nocacheParams,
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
+  },
+  getById: (id) => api.get(`/equipment/${id}`),
+  getByCategory: (categoryId) => {
+    // Логируем входные данные
+    console.log("API getByCategory вызван с categoryId:", categoryId, "Тип:", typeof categoryId);
+    
+    // Определяем параметры запроса
+    const params = { 
+      // Если categoryId - число или строка, которую можно преобразовать в число, используем category_id
+      ...(typeof categoryId === 'number' || !isNaN(Number(categoryId)) 
+        ? { category_id: Number(categoryId) } 
+        : { type: categoryId }),
+      // Добавляем параметр для предотвращения кэширования
+      nocache: new Date().getTime() 
+    };
+    
+    console.log("Параметры запроса:", params);
+    
+    // Выполняем запрос с расширенной обработкой ответа/ошибок
+    return api.get('/equipment/', { 
+      params,
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    })
+      .then(response => {
+        console.log("Ответ API на getByCategory:", response.data);
+        return response;
+      })
+      .catch(error => {
+        console.error("Ошибка в getByCategory:", error.response?.data || error.message);
+        throw error;
+      });
+  },
+  getCategories: () => api.get('/equipment/categories'),
+  getLocations: () => api.get('/equipment/locations'),
+  create: (data) => api.post('/equipment/', data),
+  update: (id, data) => api.put(`/equipment/${id}`, data),
+  delete: (id) => api.delete(`/equipment/${id}`),
+  addMaintenance: (id, data) => api.post(`/equipment/${id}/maintenance`, data),
+  getHistory: (id) => api.get(`/equipment/${id}/history`),
 };
 
 export default api;

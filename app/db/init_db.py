@@ -43,8 +43,8 @@ def main():
     Основная функция для запуска инициализации базы данных
     """
     logger.info("Инициализация базы данных")
-    # Создаем все таблицы
-    Base.metadata.create_all(bind=engine)
+    # Создаем все таблицы с проверкой существования
+    Base.metadata.create_all(bind=engine, checkfirst=True)
     
     # Создаем сессию
     db = SessionLocal()

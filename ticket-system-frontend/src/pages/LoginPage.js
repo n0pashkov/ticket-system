@@ -19,16 +19,26 @@ const LoginPage = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
+  const [sessionError, setSessionError] = useState('');
   
   const navigate = useNavigate();
   const { login, error: authError, user } = useAuth();
   const theme = useTheme();
 
-  // Очищаем кэш и сессию при загрузке страницы входа
+  // Очищаем кэш и сессию при загрузке страницы входа и проверяем наличие ошибки сессии
   useEffect(() => {
     // Очищаем токен и кэш при загрузке страницы логина
     // чтобы предотвратить проблемы с авторизацией
     clearAuthData();
+    
+    // Проверяем, есть ли сообщение об ошибке аутентификации в sessionStorage
+    const authErrorMessage = sessionStorage.getItem('auth_error');
+    if (authErrorMessage) {
+      console.log('Обнаружена ошибка аутентификации:', authErrorMessage);
+      setSessionError(authErrorMessage);
+      // Удаляем сообщение после получения, чтобы оно не отображалось повторно
+      sessionStorage.removeItem('auth_error');
+    }
   }, []);
 
   // Устанавливаем цвет фона для body при монтировании компонента
@@ -45,6 +55,7 @@ const LoginPage = () => {
   // Перенаправляем на главную, если пользователь уже авторизован
   useEffect(() => {
     if (user) {
+      console.log('Пользователь авторизован, перенаправление на главную страницу');
       navigate('/');
     }
   }, [user, navigate]);
@@ -61,14 +72,14 @@ const LoginPage = () => {
     e.preventDefault();
     setIsSubmitting(true);
     setFormError('');
+    setSessionError('');
     
     try {
       const result = await login(formData);
-      if (result.success) {
-        navigate('/');
-      } else {
+      if (!result.success) {
         setFormError(result.error);
       }
+      // Не делаем перенаправление здесь, useEffect выполнит его при обновлении user
     } catch (err) {
       console.error('Login form error:', err);
       setFormError('Произошла ошибка при входе. Пожалуйста, попробуйте снова.');
@@ -77,8 +88,8 @@ const LoginPage = () => {
     }
   };
 
-  // Определяем сообщение об ошибке для отображения
-  const errorMessage = formError || authError;
+  // Определяем сообщение об ошибке для отображения (приоритет у ошибки сессии)
+  const errorMessage = sessionError || formError || authError;
 
   return (
     <Box sx={{ 

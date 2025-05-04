@@ -10,7 +10,7 @@ from app.core.security import get_current_active_user
 from app.core.dependencies import get_current_admin
 from app.core.logging import get_logger
 from app.db.async_database import get_async_db
-from app.models.models import TicketCategory, User
+from app.models.models import TicketCategory, User, Ticket
 from app.schemas.schemas import TicketCategory as TicketCategorySchema
 
 # Создаем модель для создания категории
@@ -33,28 +33,48 @@ logger = get_logger("api.categories")
 async def read_categories(
     skip: int = 0,
     limit: int = 100,
+    show_all: bool = False,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user)
 ):
     """
     Получение списка категорий заявок.
     Данные кэшируются на стороне клиента на 1 час.
+    Параметр show_all=True вернет все категории, включая неактивные.
     """
-    logger.debug("Getting categories list")
+    logger.debug(f"Getting categories list, show_all={show_all}")
     
     # Используем SQLAlchemy select и асинхронное выполнение
-    query = select(TicketCategory).filter(TicketCategory.is_active == True).offset(skip).limit(limit)
+    if show_all:
+        query = select(TicketCategory).offset(skip).limit(limit)
+    else:
+        query = select(TicketCategory).filter(TicketCategory.is_active == True).offset(skip).limit(limit)
+    
     result = await db.execute(query)
     categories = result.scalars().all()
     
-    # Преобразуем объекты в JSON-совместимый формат
-    data = jsonable_encoder(categories)
+    # Вместо jsonable_encoder используем прямое создание словарей
+    # для избежания проблем с рекурсией
+    data = []
+    for category in categories:
+        # Преобразуем datetime в строки ISO формата
+        created_at = category.created_at.isoformat() if category.created_at else None
+        updated_at = category.updated_at.isoformat() if category.updated_at else None
+        
+        data.append({
+            "id": category.id,
+            "name": category.name,
+            "description": category.description,
+            "is_active": category.is_active,
+            "created_at": created_at,
+            "updated_at": updated_at
+        })
     
     # Создаем JSON ответ
     response = JSONResponse(content=data)
     
     # Добавляем заголовки для кэширования этого редко меняющегося ресурса
-    response.headers["Cache-Control"] = "public, max-age=3600, stale-while-revalidate=120"  # 1 час
+    response.headers["Cache-Control"] = "public, max-age=10, stale-while-revalidate=5"  # Уменьшаем для тестирования
     response.headers["Vary"] = "Accept"
     
     return response
@@ -80,8 +100,19 @@ async def read_category(
     if not category:
         raise HTTPException(status_code=404, detail="Категория не найдена")
     
-    # Преобразуем объект в JSON-совместимый формат
-    data = jsonable_encoder(category)
+    # Преобразуем datetime в строки ISO формата для корректной сериализации
+    created_at = category.created_at.isoformat() if category.created_at else None
+    updated_at = category.updated_at.isoformat() if category.updated_at else None
+    
+    # Создаем словарь с данными категории
+    data = {
+        "id": category.id,
+        "name": category.name,
+        "description": category.description,
+        "is_active": category.is_active,
+        "created_at": created_at,
+        "updated_at": updated_at
+    }
     
     # Создаем JSON ответ
     response = JSONResponse(content=data)
@@ -174,4 +205,54 @@ async def update_category(
     await db.refresh(category)
     
     logger.info(f"Category updated: {category.name} (ID: {category.id})")
-    return category 
+    return category
+
+
+@router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_category(
+    category_id: int,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_admin)
+):
+    """
+    Удаление категории заявок (только для администраторов).
+    Если категория используется в заявках, она будет помечена как неактивная.
+    В противном случае категория будет полностью удалена из БД.
+    """
+    logger.debug(f"Deleting category ID: {category_id}")
+    
+    # Получаем категорию
+    query = select(TicketCategory).filter(TicketCategory.id == category_id)
+    result = await db.execute(query)
+    category = result.scalar_one_or_none()
+    
+    if not category:
+        raise HTTPException(status_code=404, detail="Категория не найдена")
+    
+    try:
+        # Проверяем, используется ли категория в заявках
+        tickets_query = select(Ticket).filter(Ticket.category_id == category_id)
+        tickets_result = await db.execute(tickets_query)
+        tickets = tickets_result.scalars().all()
+        
+        if tickets:
+            # Если категория используется в заявках, помечаем её как неактивную
+            logger.info(f"Category {category.name} (ID: {category.id}) is in use by {len(tickets)} tickets, marking as inactive")
+            category.is_active = False
+            await db.commit()
+        else:
+            # Если категория не используется, удаляем её полностью
+            logger.info(f"Category {category.name} (ID: {category.id}) is not in use, deleting completely")
+            await db.delete(category)
+            await db.commit()
+        
+        # Возвращаем 204 No Content
+        logger.info(f"Category operation completed: {category.name} (ID: {category.id})")
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Error deleting category: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Произошла ошибка при удалении категории: {str(e)}"
+        ) 

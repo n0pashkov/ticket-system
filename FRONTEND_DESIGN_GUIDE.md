@@ -969,3 +969,218 @@ const EntityDetailsPage = () => {
 };
 
 export default EntityDetailsPage;
+```
+
+## Структура файлов и предотвращение дублирования
+
+Данный раздел описывает структуру файлов проекта и правила по предотвращению дублирования кода и функциональности.
+
+### Структура проекта
+
+```
+ticket-system-frontend/
+├── public/               # Статические файлы
+├── src/
+│   ├── api/              # API-клиенты
+│   │   └── api.js        # Основной модуль с API-клиентами (categoriesAPI, ticketsAPI, usersAPI, equipmentAPI и т.д.)
+│   ├── components/       # Переиспользуемые компоненты
+│   │   ├── Layout.js     # Основной макет приложения
+│   │   ├── Navbar.js     # Верхняя навигационная панель
+│   │   ├── Sidebar.js    # Боковая панель навигации
+│   │   └── ThemeToggler.js # Переключатель темы оформления
+│   ├── context/          # React контексты
+│   │   ├── AuthContext.js    # Контекст аутентификации
+│   │   └── ThemeContext.js   # Контекст темы оформления (светлая/темная)
+│   ├── hooks/            # Кастомные React хуки
+│   │   ├── useCategories.js  # Хук для работы с категориями
+│   │   ├── useEquipment.js   # Хук для работы с оборудованием
+│   │   ├── useTickets.js     # Хук для работы с заявками
+│   │   └── useUsers.js       # Хук для работы с пользователями
+│   ├── pages/            # Страницы приложения
+│   │   ├── CreateTicketPage.js  # Страница создания заявки
+│   │   ├── EquipmentManagementPage.js  # Страница управления оборудованием
+│   │   ├── LoginPage.js  # Страница входа
+│   │   ├── TicketDetailsPage.js  # Страница деталей заявки
+│   │   └── TicketsPage.js  # Страница списка заявок
+│   ├── utils/            # Вспомогательные функции
+│   │   ├── auth.js       # Утилиты для работы с аутентификацией
+│   │   ├── dates.js      # Форматирование дат
+│   │   └── validation.js # Валидация форм
+│   └── App.js            # Основной компонент с маршрутизацией
+├── .env                  # Файл с переменными окружения
+└── package.json          # Зависимости проекта
+```
+
+### Ключевые файлы и их назначение
+
+1. **api.js** - Центральный файл со всеми API-клиентами:
+   - Содержит все функции для взаимодействия с API сервера
+   - Каждый набор функций сгруппирован в отдельный объект (например, `ticketsAPI`, `usersAPI`)
+   - **Не создавайте отдельные файлы для API-клиентов** - добавляйте функциональность в этот файл
+
+2. **ThemeContext.js** - Управление темой оформления:
+   - Содержит настройки светлой и темной темы
+   - Экспортирует хук `useThemeMode` для доступа к контексту темы
+   - **Не создавайте отдельные файлы темы (theme.js)** - все стили должны быть в этом файле
+
+3. **hooks/*.js** - Кастомные хуки с логикой работы с данными:
+   - Каждый хук охватывает работу с конкретным типом данных
+   - Содержит функции чтения (query) и изменения (mutation) данных
+   - **Расширяйте существующие хуки вместо создания новых**
+
+4. **Layout.js** - Основной макет приложения:
+   - Используется всеми страницами для согласованного вида
+   - Содержит верхнюю навигацию и боковую панель
+   - **Не создавайте альтернативные макеты** - конфигурируйте существующий
+
+### Правила предотвращения дублирования
+
+1. **Перед созданием нового файла**:
+   - Изучите существующие файлы в соответствующей директории
+   - Проверьте, можно ли расширить существующий компонент/хук/API-клиент
+   - Рассмотрите возможность параметризации существующего кода
+
+2. **API-клиенты**:
+   - Все функции для работы с API должны быть в файле `api.js`
+   - Группируйте функции в объекты по типу данных (например, `equipmentAPI`)
+   - Пример добавления новой функциональности:
+   ```javascript
+   // Добавление в существующий API-клиент
+   export const equipmentAPI = {
+     getAll: () => api.get('/equipment/'),
+     getById: (id) => api.get(`/equipment/${id}`),
+     // Добавление новой функции
+     getByCategory: (categoryId) => api.get(`/equipment/by-category/${categoryId}`)
+   };
+   ```
+
+3. **Кастомные хуки**:
+   - Каждый тип данных должен иметь **один** соответствующий хук
+   - Расширяйте существующие хуки для добавления новой функциональности
+   - Пример расширения хука:
+   ```javascript
+   // Расширение существующего хука useEquipment.js
+   export const useEquipment = () => {
+     // Существующий код...
+     
+     // Добавление новой функциональности
+     const getEquipmentByCategory = (categoryId) => {
+       // Реализация...
+     };
+     
+     return {
+       equipment,
+       isLoading,
+       error,
+       // Добавляем новую функцию в возвращаемый объект
+       getEquipmentByCategory,
+     };
+   };
+   ```
+
+4. **Компоненты**:
+   - Делайте компоненты универсальными с параметрами вместо создания похожих
+   - Используйте композицию компонентов вместо дублирования кода
+   - Пример переиспользуемого компонента:
+   ```jsx
+   // Универсальный компонент с параметрами
+   const EntityCard = ({ title, description, status, onClick }) => (
+     <Card onClick={onClick}>
+       <CardContent>
+         <Typography variant="h6">{title}</Typography>
+         <Typography variant="body2">{description}</Typography>
+         <Chip label={status} />
+       </CardContent>
+     </Card>
+   );
+   
+   // Использование в разных контекстах
+   <EntityCard 
+     title={ticket.title}
+     description={ticket.description}
+     status={ticket.status}
+     onClick={() => navigateToTicket(ticket.id)}
+   />
+   
+   <EntityCard 
+     title={equipment.name}
+     description={equipment.description}
+     status={equipment.status}
+     onClick={() => navigateToEquipment(equipment.id)}
+   />
+   ```
+
+5. **Темы и стили**:
+   - Все темы определены в `ThemeContext.js`
+   - Используйте `useTheme()` из Material UI для доступа к текущей теме
+   - Используйте `useThemeMode()` из контекста для переключения темы
+   ```jsx
+   import { useTheme } from '@mui/material';
+   import { useThemeMode } from '../context/ThemeContext';
+   
+   const Component = () => {
+     const theme = useTheme(); // Доступ к объекту темы
+     const { darkMode, toggleTheme } = useThemeMode(); // Переключение темы
+     
+     return (
+       <Box sx={{ 
+         color: theme.palette.text.primary,
+         bgcolor: theme.palette.background.default 
+       }}>
+         <Button onClick={toggleTheme}>
+           {darkMode ? 'Светлая тема' : 'Темная тема'}
+         </Button>
+       </Box>
+     );
+   };
+   ```
+
+### Примеры неправильного и правильного подхода
+
+❌ **Неправильно: Создание отдельного файла темы**
+```jsx
+// theme.js - НЕ СОЗДАВАЙТЕ ЭТОТ ФАЙЛ
+export const theme = {
+  palette: {
+    primary: { main: '#2196f3' }
+  }
+};
+```
+
+✅ **Правильно: Использование существующего контекста**
+```jsx
+// Используйте существующий контекст темы
+import { useTheme } from '@mui/material';
+import { useThemeMode } from '../context/ThemeContext';
+
+const component = () => {
+  const theme = useTheme();
+  const { darkMode, toggleTheme } = useThemeMode();
+};
+```
+
+❌ **Неправильно: Создание похожего хука**
+```jsx
+// useTicketsByCategory.js - НЕ СОЗДАВАЙТЕ ОТДЕЛЬНЫЙ ХУК
+export const useTicketsByCategory = (categoryId) => {
+  // Дублирование логики из useTickets.js
+};
+```
+
+✅ **Правильно: Расширение существующего хука**
+```jsx
+// useTickets.js - добавление функциональности в существующий хук
+export const useTickets = (filters = {}) => {
+  // Существующий код...
+  
+  // Добавление новой функции
+  const getTicketsByCategory = (categoryId) => {
+    // Реализация...
+  };
+  
+  return {
+    tickets,
+    isLoading,
+    getTicketsByCategory // возвращаем новую функцию
+  };
+};

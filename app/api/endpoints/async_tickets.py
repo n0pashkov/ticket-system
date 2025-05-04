@@ -37,6 +37,7 @@ async def create_ticket_async(
             priority=ticket.priority,
             category_id=ticket.category_id,
             room_number=ticket.room_number,
+            equipment_id=ticket.equipment_id,
             creator_id=current_user.id
         )
         

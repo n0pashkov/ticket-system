@@ -13,6 +13,7 @@ class TicketBase(BaseModel):
     priority: str = "medium"
     category_id: Optional[int] = None
     room_number: str
+    equipment_id: Optional[int] = None
 
 
 # Схема для создания заявки

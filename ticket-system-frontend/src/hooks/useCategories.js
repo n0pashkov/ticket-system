@@ -9,13 +9,13 @@ export const useCategories = (params = {}) => {
     queryKey: ['categories', params],
     queryFn: () => categoriesAPI.getAll(params),
     select: (data) => data.data || [],
-    // Обновляем настройки кэширования для соответствия серверному кэшу
-    staleTime: 60 * 60 * 1000, // 1 час, соответствует Cache-Control max-age=3600
-    cacheTime: 2 * 60 * 60 * 1000, // 2 часа
-    // Отключаем автоматические перезапросы для стабильных данных
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+    // Уменьшаем время кэширования для более быстрого обновления данных
+    staleTime: 10 * 1000, // 10 секунд
+    cacheTime: 60 * 1000, // 1 минута
+    // Включаем автоматические перезапросы для обновления данных
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     onError: (error) => {
       console.error('Error fetching categories:', error);
       return [];
@@ -28,6 +28,8 @@ export const useCategories = (params = {}) => {
     onSuccess: () => {
       // Инвалидируем кэши после успешного создания
       queryClient.invalidateQueries({ queryKey: ['categories'] });
+      // Принудительно запрашиваем обновление данных
+      categoriesQuery.refetch();
     },
     onError: (error) => {
       console.error('Error creating category:', error);
@@ -45,6 +47,8 @@ export const useCategories = (params = {}) => {
       }));
       // Инвалидируем общий список категорий
       queryClient.invalidateQueries({ queryKey: ['categories'] });
+      // Принудительно запрашиваем обновление данных
+      categoriesQuery.refetch();
     },
     onError: (error) => {
       console.error('Error updating category:', error);
@@ -54,12 +58,39 @@ export const useCategories = (params = {}) => {
   // Мутация для удаления категории
   const deleteCategoryMutation = useMutation({
     mutationFn: categoriesAPI.delete,
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       // Инвалидируем кэши после успешного удаления
       queryClient.invalidateQueries({ queryKey: ['categories'] });
+      
+      // Оптимистически обновляем локальное состояние
+      queryClient.setQueryData(['categories', params], (oldData) => {
+        if (!oldData) return oldData;
+        
+        // Если у нас массив данных
+        if (Array.isArray(oldData)) {
+          return oldData.filter(cat => cat.id !== variables);
+        }
+        
+        // Если у нас объект с data
+        if (oldData.data && Array.isArray(oldData.data)) {
+          return {
+            ...oldData,
+            data: oldData.data.filter(cat => cat.id !== variables)
+          };
+        }
+        
+        return oldData;
+      });
+      
+      // Принудительно запрашиваем обновление данных
+      console.log('Category deleted, refetching data...');
+      categoriesQuery.refetch();
     },
     onError: (error) => {
       console.error('Error deleting category:', error);
+      // Инвалидируем кэш для принудительного обновления данных
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      categoriesQuery.refetch();
     }
   });
 
@@ -68,9 +99,10 @@ export const useCategories = (params = {}) => {
     isLoading: categoriesQuery.isLoading,
     isError: categoriesQuery.isError,
     error: categoriesQuery.error,
-    createCategory: createCategoryMutation.mutate,
-    updateCategory: updateCategoryMutation.mutate,
-    deleteCategory: deleteCategoryMutation.mutate,
+    refetch: categoriesQuery.refetch,
+    createCategory: createCategoryMutation.mutateAsync,
+    updateCategory: updateCategoryMutation.mutateAsync,
+    deleteCategory: deleteCategoryMutation.mutateAsync,
   };
 };
 
@@ -83,13 +115,13 @@ export const useCategory = (categoryId) => {
     queryFn: () => categoriesAPI.getById(categoryId),
     select: (data) => data.data,
     enabled: !!categoryId,
-    // Используем долгое кэширование для отдельных категорий
-    staleTime: 60 * 60 * 1000, // 1 час
-    cacheTime: 2 * 60 * 60 * 1000, // 2 часа
-    // Отключаем автоматические перезапросы для стабильных данных
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+    // Уменьшаем время кэширования
+    staleTime: 10 * 1000, // 10 секунд
+    cacheTime: 60 * 1000, // 1 минута
+    // Включаем автоматические перезапросы
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   return {
@@ -97,6 +129,7 @@ export const useCategory = (categoryId) => {
     isLoading: categoryQuery.isLoading,
     isError: categoryQuery.isError,
     error: categoryQuery.error,
+    refetch: categoryQuery.refetch,
   };
 };
 

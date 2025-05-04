@@ -13,6 +13,19 @@ export const useTickets = (filters = {}) => {
     combinedFilters.user_id = user.id;
   }
 
+  // Проверяем, есть ли путь в фильтрах (старый способ фильтрации)
+  // и преобразуем его в параметры запроса
+  if (combinedFilters.path === '/new' || combinedFilters.path === 'new') {
+    delete combinedFilters.path;
+    combinedFilters.status = 'new';
+  } else if (combinedFilters.path === '/in_progress' || combinedFilters.path === 'in_progress') {
+    delete combinedFilters.path;
+    combinedFilters.status = 'in_progress';
+  } else if (combinedFilters.path === '/closed' || combinedFilters.path === 'closed') {
+    delete combinedFilters.path;
+    combinedFilters.status = 'closed';
+  }
+
   const ticketsQuery = useQuery({
     queryKey: ['tickets', combinedFilters],
     queryFn: () => {
@@ -203,12 +216,51 @@ export const useTickets = (filters = {}) => {
     }
   });
 
+  // Функция создания заявки
+  const createTicket = (ticketData, options = {}) => {
+    const { onSuccess, onError } = options;
+    
+    // Глубокое копирование данных заявки, чтобы избежать мутаций
+    const processedData = JSON.parse(JSON.stringify(ticketData));
+    
+    // Добавляем поле equipment_id, если оно есть в данных
+    if (processedData.equipment_id) {
+      // Оно уже есть в данных формы, не нужно дополнительной обработки
+    } else {
+      // Если equipment_id не указан, удаляем это поле
+      delete processedData.equipment_id;
+    }
+    
+    // Отправляем запрос на создание заявки
+    ticketsAPI.create(processedData)
+      .then(response => {
+        // Инвалидируем кэши запросов по заявкам
+        queryClient.invalidateQueries({ queryKey: ['tickets'] });
+        
+        // Если нужно получить свежий список после создания
+        queryClient.refetchQueries({ queryKey: ['tickets', 'list'] });
+        
+        // Выполняем callback onSuccess, если он предоставлен
+        if (typeof onSuccess === 'function') {
+          onSuccess(response);
+        }
+      })
+      .catch(error => {
+        console.error('Ошибка при создании заявки:', error);
+        
+        // Выполняем callback onError, если он предоставлен
+        if (typeof onError === 'function') {
+          onError(error);
+        }
+      });
+  };
+
   return {
     tickets: ticketsQuery.data || [],
     isLoading: ticketsQuery.isLoading,
     isError: ticketsQuery.isError,
     error: ticketsQuery.error,
-    createTicket: ticketMutation.mutate,
+    createTicket: createTicket,
     updateTicket: updateTicketMutation.mutate,
     deleteTicket: deleteTicketMutation.mutate,
     assignTicket: assignTicketMutation.mutate,

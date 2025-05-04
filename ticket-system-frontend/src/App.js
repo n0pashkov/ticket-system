@@ -1,187 +1,156 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Box, CircularProgress, Typography } from '@mui/material';
-
-// Context
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeModeProvider } from './context/ThemeContext';
+import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 
-// Pages
+// Страницы
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
-import AgentDashboardPage from './pages/AgentDashboardPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import AgentDashboardPage from './pages/AgentDashboardPage';
 import TicketsPage from './pages/TicketsPage';
-import ProfilePage from './pages/ProfilePage';
-import CreateTicketPage from './pages/CreateTicketPage';
-import CategoryManagementPage from './pages/CategoryManagementPage';
 import TicketDetailsPage from './pages/TicketDetailsPage';
+import CreateTicketPage from './pages/CreateTicketPage';
+import ProfilePage from './pages/ProfilePage';
 import ManageUsersPage from './pages/ManageUsersPage';
+import EquipmentManagementPage from './pages/EquipmentManagementPage';
 
-// Components
+// Компоненты
 import Layout from './components/Layout';
 
-// Create a client
+// Создаем клиент React Query
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
       retry: 1,
-      // Обновляем настройки кэширования для соответствия серверному
       staleTime: 5 * 60 * 1000,  // 5 минут - базовое значение
       cacheTime: 30 * 60 * 1000, // 30 минут - общее время хранения в кэше
-      // Настройки для оптимизации сетевых запросов
       networkMode: 'offlineFirst', // Предпочитать кэшированные данные при нестабильном соединении
-      // Отключаем автоматическую повторную выборку при фокусе окна для уменьшения нагрузки
-      refetchOnMount: false,
-      refetchOnReconnect: 'always',
     },
   },
 });
 
-// Protected Route component
-const ProtectedRoute = ({ children }) => {
-  const { user, loading } = useAuth();
+// Защищенный маршрут
+const ProtectedRoute = ({ requiredRoles = [] }) => {
+  const { user, isAuthenticated, loading } = useAuth();
   
-  if (loading) {
+  console.log('ProtectedRoute проверка:', { 
+    isAuthenticated, 
+    loading, 
+    userExists: !!user, 
+    userRole: user?.role,
+    requiredRoles 
+  });
+
+  // Если аутентификация еще проверяется, показываем загрузку
+  // Но только если есть токен в localStorage
+  if (loading && localStorage.getItem('token')) {
+    console.log('Проверка аутентификации...');
     return <div>Loading...</div>;
   }
-  
-  if (!user) {
+
+  // Если пользователь не аутентифицирован, перенаправляем на страницу входа
+  if (!isAuthenticated) {
+    console.log('Пользователь не аутентифицирован, перенаправление на /login');
+    // Добавляем сообщение для страницы логина, если был токен, но аутентификация не прошла
+    if (localStorage.getItem('token')) {
+      sessionStorage.setItem('auth_error', 'Ваша сессия истекла. Пожалуйста, войдите снова.');
+      localStorage.removeItem('token');
+    }
     return <Navigate to="/login" replace />;
   }
-  
-  return children;
+
+  // Если требуются определенные роли и у пользователя нет нужной роли
+  if (requiredRoles.length > 0 && !requiredRoles.includes(user.role)) {
+    console.log(`Требуемые роли: ${requiredRoles.join(', ')}, роль пользователя: ${user.role}`);
+    
+    // Перенаправляем на соответствующую страницу дашборда
+    if (user.role === 'admin') {
+      console.log('Перенаправление администратора на /admin');
+      return <Navigate to="/admin" replace />;
+    } else if (user.role === 'agent') {
+      console.log('Перенаправление специалиста на /agent');
+      return <Navigate to="/agent" replace />;
+    } else {
+      console.log('Перенаправление обычного пользователя на /');
+      return <Navigate to="/" replace />;
+    }
+  }
+
+  // Если все проверки пройдены, рендерим маршрут
+  console.log('Доступ разрешен, отображение запрошенного маршрута');
+  return <Outlet />;
 };
 
-// Dashboard Router - отображает соответствующий дашборд в зависимости от роли пользователя
-const DashboardRouter = () => {
-  const { user, loading } = useAuth();
+// Компонент главной страницы, который отображает соответствующий дашборд в зависимости от роли
+const MainPage = () => {
+  const { user } = useAuth();
   
-  // Добавляем проверку загрузки
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 4 }}>
-        <CircularProgress size={60} />
-        <Typography variant="h6" sx={{ mt: 2 }}>Загрузка данных пользователя...</Typography>
-      </Box>
-    );
-  }
-  
-  // Проверяем наличие пользователя
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-  
-  // Если пользователь - администратор, отображаем панель администратора
   if (user?.role === 'admin') {
     return <AdminDashboardPage />;
-  }
-  
-  // Если пользователь - агент, отображаем агентский дашборд
-  if (user?.role === 'agent') {
+  } else if (user?.role === 'agent') {
     return <AgentDashboardPage />;
+  } else {
+    return <DashboardPage />;
   }
-  
-  // Для обычных пользователей отображаем стандартный дашборд
-  return <DashboardPage />;
 };
 
 function App() {
   return (
-    <ThemeModeProvider>
-      <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={queryClient}>
+      <ThemeModeProvider>
+        <CssBaseline />
         <AuthProvider>
           <Router>
             <Routes>
+              {/* Публичные маршруты */}
               <Route path="/login" element={<LoginPage />} />
-              <Route 
-                path="/" 
-                element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <DashboardRouter />
-                    </Layout>
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/tickets" 
-                element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <TicketsPage />
-                    </Layout>
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/tickets/new" 
-                element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <CreateTicketPage />
-                    </Layout>
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/tickets/:id" 
-                element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <TicketDetailsPage />
-                    </Layout>
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/profile" 
-                element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <ProfilePage />
-                    </Layout>
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/settings" 
-                element={
-                  <ProtectedRoute>
-                    <Layout>
-                      {/* We'll implement this page later */}
-                      <div>Settings (Coming Soon)</div>
-                    </Layout>
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/category-management" 
-                element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <CategoryManagementPage />
-                    </Layout>
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/manage-users" 
-                element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <ManageUsersPage />
-                    </Layout>
-                  </ProtectedRoute>
-                } 
-              />
+
+              {/* Маршруты, требующие аутентификации */}
+              <Route element={<ProtectedRoute />}>
+                <Route element={<Layout />}>
+                  {/* Главная страница отображает соответствующий дашборд в зависимости от роли */}
+                  <Route path="/" element={<MainPage />} />
+                  
+                  {/* Заявки */}
+                  <Route path="/tickets" element={<TicketsPage />} />
+                  <Route path="/tickets/new" element={<CreateTicketPage />} />
+                  <Route path="/tickets/:id" element={<TicketDetailsPage />} />
+                  
+                  {/* Профиль пользователя */}
+                  <Route path="/profile" element={<ProfilePage />} />
+                </Route>
+              </Route>
+
+              {/* Маршруты для администратора */}
+              <Route element={<ProtectedRoute requiredRoles={['admin']} />}>
+                <Route element={<Layout />}>
+                  {/* Оставляем этот маршрут для совместимости, но он будет перенаправлять на главную */}
+                  <Route path="/admin" element={<Navigate to="/" replace />} />
+                  <Route path="/admin/users" element={<ManageUsersPage />} />
+                  <Route path="/admin/categories" element={<Navigate to="/admin/equipment" replace />} />
+                  <Route path="/admin/equipment" element={<EquipmentManagementPage />} />
+                </Route>
+              </Route>
+
+              {/* Маршруты для технического специалиста */}
+              <Route element={<ProtectedRoute requiredRoles={['agent']} />}>
+                <Route element={<Layout />}>
+                  {/* Оставляем этот маршрут для совместимости, но он будет перенаправлять на главную */}
+                  <Route path="/agent" element={<Navigate to="/" replace />} />
+                </Route>
+              </Route>
+
+              {/* Перенаправление неизвестных маршрутов */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Router>
         </AuthProvider>
-      </QueryClientProvider>
-    </ThemeModeProvider>
+      </ThemeModeProvider>
+    </QueryClientProvider>
   );
 }
 

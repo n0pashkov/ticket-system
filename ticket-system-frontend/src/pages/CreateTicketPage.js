@@ -1,14 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Typography, Box, TextField, Button,
   FormControl, InputLabel, Select, MenuItem,
   Alert, CircularProgress, Snackbar, IconButton,
-  Card, CardContent, Avatar, Divider, useTheme, useMediaQuery
+  Card, CardContent, Avatar, Divider, useTheme, useMediaQuery,
+  List, ListItem, ListItemText, ListItemIcon, Checkbox
 } from '@mui/material';
 import { useTickets } from '../hooks/useTickets';
 import { useAuth } from '../context/AuthContext';
 import useCategories from '../hooks/useCategories';
+import { useEquipmentByCategory } from '../hooks/useEquipment';
 
 // Иконки
 import AddCircleIcon from '@mui/icons-material/AddCircle';
@@ -17,6 +19,7 @@ import NoteAddIcon from '@mui/icons-material/NoteAdd';
 import FlagIcon from '@mui/icons-material/Flag';
 import CategoryIcon from '@mui/icons-material/Category';
 import SendIcon from '@mui/icons-material/Send';
+import ComputerIcon from '@mui/icons-material/Computer';
 
 // Константы для цветов
 const priorityColors = {
@@ -43,8 +46,31 @@ const CreateTicketPage = () => {
     description: '',
     priority: 'medium',
     category_id: '',
-    room_number: ''
+    room_number: '',
+    equipment_id: null
   });
+
+  // Получаем оборудование для выбранной категории
+  const { equipment, isLoading: equipmentLoading, isError: equipmentError } = useEquipmentByCategory(formData.category_id);
+  const [selectedEquipment, setSelectedEquipment] = useState(null);
+
+  // Для отладки - выводим информацию о выбранной категории 
+  const selectedCategoryInfo = useMemo(() => {
+    if (!formData.category_id || !categories) return null;
+    
+    const category = categories.find(cat => cat.id === formData.category_id);
+    return category ? {
+      id: category.id,
+      name: category.name,
+      description: category.description
+    } : null;
+  }, [formData.category_id, categories]);
+
+  useEffect(() => {
+    if (selectedCategoryInfo) {
+      console.log('Выбранная категория:', selectedCategoryInfo);
+    }
+  }, [selectedCategoryInfo]);
 
   // Валидация
   const [formErrors, setFormErrors] = useState({
@@ -73,6 +99,12 @@ const CreateTicketPage = () => {
     // Сбросить общую ошибку при выборе категории
     if (name === 'category_id' && value) {
       setError('');
+      // Сбрасываем выбранное оборудование при смене категории
+      setSelectedEquipment(null);
+      setFormData(prev => ({
+        ...prev,
+        equipment_id: null
+      }));
     }
   };
 
@@ -187,6 +219,28 @@ const CreateTicketPage = () => {
     const category = categories.find(cat => cat.id === formData.category_id);
     return category ? category.name : "Не выбрана";
   };
+
+  // Обработчик выбора оборудования
+  const handleEquipmentSelect = (equipmentId) => {
+    console.log('Выбрано оборудование с ID:', equipmentId);
+    setSelectedEquipment(equipmentId);
+    setFormData(prev => ({
+      ...prev,
+      equipment_id: equipmentId
+    }));
+  };
+
+  // Добавляем эффект для отладки
+  useEffect(() => {
+    if (formData.category_id) {
+      console.log('Изменилась выбранная категория:', formData.category_id);
+    }
+  }, [formData.category_id]);
+
+  // Добавляем эффект для отладки оборудования
+  useEffect(() => {
+    console.log('Текущий список оборудования:', equipment);
+  }, [equipment]);
 
   return (
     <Box sx={{ 
@@ -429,6 +483,78 @@ const CreateTicketPage = () => {
             </Card>
           </Box>
         </Box>
+
+        {/* Оборудование - показываем после выбора категории */}
+        {formData.category_id && (
+          <Card sx={{ 
+            mb: 3, 
+            borderRadius: 3,
+            border: `1px solid ${theme.palette.divider}`,
+            boxShadow: 'none',
+          }}>
+            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+                <ComputerIcon color="action" sx={{ mr: 1 }} />
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  Выберите оборудование{selectedCategoryInfo ? ` - ${selectedCategoryInfo.name}` : ''}
+                </Typography>
+              </Box>
+              
+              {equipmentLoading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
+                  <CircularProgress size={24} />
+                  <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
+                    Загрузка оборудования...
+                  </Typography>
+                </Box>
+              ) : equipmentError ? (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  Ошибка при загрузке оборудования. Пожалуйста, попробуйте другую категорию.
+                </Alert>
+              ) : equipment.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', my: 2 }}>
+                  Нет доступного оборудования для категории "{selectedCategoryInfo?.name || 'выбранной категории'}"
+                </Typography>
+              ) : (
+                <List dense sx={{ maxHeight: '200px', overflowY: 'auto' }}>
+                  {equipment.map((item) => (
+                    <ListItem 
+                      key={item.id}
+                      dense
+                      button
+                      onClick={() => handleEquipmentSelect(item.id)}
+                      sx={{
+                        borderRadius: 1,
+                        mb: 0.5,
+                        border: selectedEquipment === item.id 
+                          ? `1px solid ${theme.palette.primary.main}` 
+                          : `1px solid ${theme.palette.divider}`,
+                        backgroundColor: selectedEquipment === item.id 
+                          ? 'rgba(25, 118, 210, 0.08)' 
+                          : 'transparent',
+                      }}
+                    >
+                      <ListItemIcon>
+                        <Checkbox
+                          edge="start"
+                          checked={selectedEquipment === item.id}
+                          tabIndex={-1}
+                          disableRipple
+                          inputProps={{ 'aria-labelledby': `equipment-${item.id}` }}
+                        />
+                      </ListItemIcon>
+                      <ListItemText
+                        id={`equipment-${item.id}`}
+                        primary={item.name || "Оборудование без названия"}
+                        secondary={`${item.type || "Тип не указан"} • ${item.location || "Место не указано"}`}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Кнопки действий */}
         <Box sx={{ 

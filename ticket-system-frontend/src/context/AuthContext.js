@@ -29,8 +29,23 @@ export const AuthProvider = ({ children }) => {
             clearAuthData(); // Очистка токена и кэша
             setError('Необходимо войти в систему заново');
           } else {
-            // Другие ошибки API
-            setError('Ошибка получения данных пользователя');
+            // Ограничиваем число повторных попыток для предотвращения циклов
+            const retryCount = parseInt(localStorage.getItem('auth_retry_count') || '0');
+            if (retryCount < 2) {
+              // Увеличиваем счетчик попыток
+              localStorage.setItem('auth_retry_count', (retryCount + 1).toString());
+              
+              // Даем небольшую задержку перед повторной попыткой
+              setTimeout(() => {
+                checkAuth();
+              }, 1000);
+              return;
+            } else {
+              // Сбрасываем счетчик попыток после превышения лимита
+              localStorage.removeItem('auth_retry_count');
+              // Другие ошибки API
+              setError('Ошибка получения данных пользователя');
+            }
           }
           setUser(null);
         }
@@ -41,7 +56,39 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     };
 
+    // Сбрасываем счетчик попыток при первой загрузке
+    localStorage.removeItem('auth_retry_count');
     checkAuth();
+    
+    // Добавляем обработчик события для перезагрузки страницы
+    const handleBeforeUnload = () => {
+      // Сохраняем важную информацию в sessionStorage, которая сохраняется при обновлении страницы
+      if (user) {
+        sessionStorage.setItem('user_data_backup', JSON.stringify(user));
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    // Пытаемся восстановить данные из sessionStorage при перезагрузке
+    const restoreUserData = () => {
+      const savedData = sessionStorage.getItem('user_data_backup');
+      if (savedData && !user) {
+        try {
+          const userData = JSON.parse(savedData);
+          // Временно устанавливаем данные до получения актуальных
+          setUser(userData);
+        } catch (e) {
+          console.error('Failed to restore user data from session storage', e);
+        }
+      }
+    };
+    
+    restoreUserData();
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
   }, []);
 
   const login = async (userData) => {
@@ -66,11 +113,17 @@ export const AuthProvider = ({ children }) => {
         // Получаем информацию о пользователе
         const userResponse = await usersAPI.getCurrent();
         console.log('User data received:', userResponse.data);
-        setUser(userResponse.data);
+        
+        // Сохраняем данные пользователя
+        const userData = userResponse.data;
+        setUser(userData);
+        
+        // Также сохраняем в sessionStorage для восстановления при перезагрузке
+        sessionStorage.setItem('user_data_backup', JSON.stringify(userData));
+        
         setLoading(false);
         
-        // Перезагружаем страницу, чтобы гарантировать чистое состояние
-        window.location.href = '/';
+        // Не перезагружаем страницу, возвращаем успешный результат
         
         return { success: true };
       } catch (userErr) {
@@ -124,6 +177,8 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await usersAPI.getCurrent();
       setUser(response.data);
+      // Обновляем резервную копию в sessionStorage
+      sessionStorage.setItem('user_data_backup', JSON.stringify(response.data));
       setError(null);
     } catch (err) {
       console.error('Failed to refresh user data:', err);
@@ -140,14 +195,23 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     // Используем функцию для очистки токена и кэша
     clearAuthData();
+    // Также очищаем sessionStorage
+    sessionStorage.removeItem('user_data_backup');
     setError(null);
     
-    // Перезагружаем страницу для полной очистки состояния
-    window.location.href = '/login';
+    // Не перезагружаем страницу, React Router сам перенаправит на /login
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, error, refreshUserData }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      login, 
+      logout, 
+      loading, 
+      error, 
+      refreshUserData,
+      isAuthenticated: !!user
+    }}>
       {children}
     </AuthContext.Provider>
   );
