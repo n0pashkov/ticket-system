@@ -904,6 +904,7 @@ const EquipmentManagementPage = () => {
           }
         }}
         fullScreen={window.innerWidth < 600}
+        disableRestoreFocus
       >
         <DialogTitle 
           sx={{ 
