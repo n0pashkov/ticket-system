@@ -335,7 +335,7 @@ const TicketsPage = () => {
         width: '100%',
         boxSizing: 'border-box' 
       }}>
-        {/* Заголовок и кнопка назад */}
+        {/* Заголовок и кнопка создания заявки */}
         <Box sx={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
@@ -354,9 +354,6 @@ const TicketsPage = () => {
             >
               <ArrowBackIcon />
             </IconButton>
-            <Typography variant="h5" sx={{ fontWeight: 700 }}>
-              Все заявки
-            </Typography>
           </Box>
 
           <Button

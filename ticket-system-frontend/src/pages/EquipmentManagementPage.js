@@ -453,18 +453,22 @@ const EquipmentManagementPage = () => {
   
   return (
     <Box sx={{ maxWidth: 1200, mx: 'auto', px: 2, py: 2 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Управление оборудованием
-        </Typography>
-        
-        <Box sx={{ display: 'flex', gap: 2 }}>
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: { xs: 'column', md: 'row' }, 
+        justifyContent: 'space-between', 
+        alignItems: { xs: 'flex-start', md: 'center' }, 
+        gap: { xs: 2, md: 0 },
+        mb: 3 
+      }}>
+        <Box sx={{ display: 'flex', gap: 2, width: { xs: '100%', md: 'auto' } }}>
           <Tooltip title="Принудительно обновить данные">
             <Button 
               variant="outlined"
               startIcon={<RefreshIcon />}
               onClick={handleForceRefresh}
-              sx={{ borderRadius: 2 }}
+              sx={{ borderRadius: 2, flex: { xs: 1, md: 'initial' } }}
+              size="small"
             >
               Обновить
             </Button>
@@ -474,9 +478,10 @@ const EquipmentManagementPage = () => {
             variant="contained"
             startIcon={<AddIcon />}
             onClick={handleAddClick}
-            sx={{ borderRadius: 2 }}
+            sx={{ borderRadius: 2, flex: { xs: 1, md: 'initial' } }}
+            size="small"
           >
-            Добавить оборудование
+            Добавить
           </Button>
         </Box>
       </Box>
@@ -485,6 +490,8 @@ const EquipmentManagementPage = () => {
       <Tabs
         value={tabValue}
         onChange={handleTabChange}
+        variant="scrollable"
+        scrollButtons="auto"
         sx={{ 
           mb: 3,
           borderBottom: 1, 
@@ -492,7 +499,9 @@ const EquipmentManagementPage = () => {
           '& .MuiTab-root': {
             textTransform: 'none',
             fontWeight: 500,
-            fontSize: '0.95rem',
+            fontSize: { xs: '0.8rem', sm: '0.95rem' },
+            minWidth: { xs: 'auto', sm: 120 },
+            padding: { xs: '6px 10px', sm: '12px 16px' }
           }
         }}
       >
@@ -509,7 +518,7 @@ const EquipmentManagementPage = () => {
           id="categories-tab"
         />
         <Tab 
-          label="Управление категориями" 
+          label="Управление" 
           icon={<EditIcon fontSize="small" />} 
           iconPosition="start"
           id="category-management-tab"
@@ -531,7 +540,7 @@ const EquipmentManagementPage = () => {
             flexDirection: { xs: 'column', sm: 'row' }, 
             gap: 2, 
             mb: 3,
-            alignItems: 'center'
+            alignItems: 'flex-start'
           }}>
             <TextField
               fullWidth
@@ -544,6 +553,7 @@ const EquipmentManagementPage = () => {
                   borderRadius: 2
                 }
               }}
+              size="small"
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -553,53 +563,60 @@ const EquipmentManagementPage = () => {
               }}
             />
             
-            <FormControl 
-              sx={{ 
-                minWidth: 200, 
-                flex: 1,
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 2
-                }
-              }} 
-              size="small"
-            >
-              <InputLabel id="category-filter-label">Категория</InputLabel>
-              <Select
-                labelId="category-filter-label"
-                value={selectedCategory}
-                label="Категория"
-                onChange={(e) => setSelectedCategory(e.target.value)}
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: { xs: 'column', sm: 'row' }, 
+              gap: 2, 
+              width: { xs: '100%', sm: 'auto' }
+            }}>
+              <FormControl 
+                sx={{ 
+                  minWidth: { xs: '100%', sm: 150 }, 
+                  flex: { xs: 1, sm: 'initial' },
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2
+                  }
+                }} 
+                size="small"
               >
-                <MenuItem value="">Все категории</MenuItem>
-                {equipmentTypes.map((category) => (
-                  <MenuItem key={category} value={category}>{category}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            
-            <FormControl 
-              sx={{ 
-                minWidth: 200, 
-                flex: 1,
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 2
-                }
-              }} 
-              size="small"
-            >
-              <InputLabel id="location-filter-label">Местоположение</InputLabel>
-              <Select
-                labelId="location-filter-label"
-                value={selectedLocation}
-                label="Местоположение"
-                onChange={(e) => setSelectedLocation(e.target.value)}
+                <InputLabel id="category-filter-label">Категория</InputLabel>
+                <Select
+                  labelId="category-filter-label"
+                  value={selectedCategory}
+                  label="Категория"
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                >
+                  <MenuItem value="">Все категории</MenuItem>
+                  {equipmentTypes.map((category) => (
+                    <MenuItem key={category} value={category}>{category}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              
+              <FormControl 
+                sx={{ 
+                  minWidth: { xs: '100%', sm: 150 }, 
+                  flex: { xs: 1, sm: 'initial' },
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2
+                  }
+                }} 
+                size="small"
               >
-                <MenuItem value="">Все местоположения</MenuItem>
-                {locations.map((location) => (
-                  <MenuItem key={location} value={location}>{location}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+                <InputLabel id="location-filter-label">Местоположение</InputLabel>
+                <Select
+                  labelId="location-filter-label"
+                  value={selectedLocation}
+                  label="Местоположение"
+                  onChange={(e) => setSelectedLocation(e.target.value)}
+                >
+                  <MenuItem value="">Все местоположения</MenuItem>
+                  {locations.map((location) => (
+                    <MenuItem key={location} value={location}>{location}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
           </Box>
           
           {/* Таблица оборудования */}
@@ -608,19 +625,19 @@ const EquipmentManagementPage = () => {
             sx={{ 
               borderRadius: 3, 
               boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-              overflow: 'hidden',
+              overflow: 'auto',
               mb: 3
             }}
           >
-            <Table>
+            <Table size="small">
               <TableHead>
                 <TableRow sx={{ backgroundColor: 'rgba(33, 150, 243, 0.05)' }}>
-                  <TableCell sx={{ fontWeight: 600 }}>Название</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Категория</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Модель</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Инв. номер</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Местоположение</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Статус</TableCell>
+                  <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Название</TableCell>
+                  <TableCell sx={{ fontWeight: 600, display: { xs: 'none', sm: 'table-cell' } }}>Категория</TableCell>
+                  <TableCell sx={{ fontWeight: 600, display: { xs: 'none', md: 'table-cell' } }}>Модель</TableCell>
+                  <TableCell sx={{ fontWeight: 600, display: { xs: 'none', md: 'table-cell' } }}>Инв. номер</TableCell>
+                  <TableCell sx={{ fontWeight: 600, display: { xs: 'none', sm: 'table-cell' } }}>Расположение</TableCell>
+                  <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Статус</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Действия</TableCell>
                 </TableRow>
               </TableHead>
@@ -650,10 +667,10 @@ const EquipmentManagementPage = () => {
                           </Typography>
                         </Box>
                       </TableCell>
-                      <TableCell>{item.type || "Не указана"}</TableCell>
-                      <TableCell>{item.model || "Не указана"}</TableCell>
-                      <TableCell>{item.inventory_number || "Не указан"}</TableCell>
-                      <TableCell>{item.location || "Не указано"}</TableCell>
+                      <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{item.type || "Не указана"}</TableCell>
+                      <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{item.model || "Не указана"}</TableCell>
+                      <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{item.inventory_number || "Не указан"}</TableCell>
+                      <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{item.location || "Не указано"}</TableCell>
                       <TableCell>
                         <Chip 
                           label={item.status || "Неизвестно"} 
@@ -726,7 +743,14 @@ const EquipmentManagementPage = () => {
       {/* Содержимое вкладки "Управление категориями" */}
       {tabValue === 2 && (
         <Box>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: { xs: 'column', sm: 'row' }, 
+            justifyContent: 'space-between', 
+            alignItems: { xs: 'flex-start', sm: 'center' }, 
+            gap: 2,
+            mb: 3 
+          }}>
             <Typography variant="h6" component="h1" sx={{ fontWeight: 600 }}>
               Управление категориями
               <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 2 }}>
@@ -738,20 +762,21 @@ const EquipmentManagementPage = () => {
               color="primary"
               startIcon={<AddIcon />}
               onClick={() => handleCategoryDialogOpen('create')}
-              sx={{ borderRadius: 2, textTransform: 'none' }}
+              sx={{ borderRadius: 2, textTransform: 'none', width: { xs: '100%', sm: 'auto' } }}
+              size="small"
             >
               Добавить категорию
             </Button>
           </Box>
 
           {/* Таблица категорий */}
-          <TableContainer component={Paper} sx={{ borderRadius: 3, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-            <Table>
+          <TableContainer component={Paper} sx={{ borderRadius: 3, boxShadow: '0 2px 8px rgba(0,0,0,0.05)', overflow: 'auto' }}>
+            <Table size="small">
               <TableHead>
                 <TableRow sx={{ backgroundColor: 'rgba(33, 150, 243, 0.05)' }}>
-                  <TableCell sx={{ fontWeight: 600 }}>ID</TableCell>
+                  <TableCell sx={{ fontWeight: 600, width: 50 }}>ID</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Название</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Описание</TableCell>
+                  <TableCell sx={{ fontWeight: 600, display: { xs: 'none', md: 'table-cell' } }}>Описание</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Статус</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Действия</TableCell>
                 </TableRow>
@@ -776,7 +801,7 @@ const EquipmentManagementPage = () => {
                     <TableRow key={`category-management-${category.id}`}>
                       <TableCell>{category.id}</TableCell>
                       <TableCell>{category.name}</TableCell>
-                      <TableCell>{category.description || '-'}</TableCell>
+                      <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{category.description || '-'}</TableCell>
                       <TableCell>
                         <Chip 
                           label={category.is_active ? 'Активна' : 'Неактивна'} 
@@ -853,14 +878,41 @@ const EquipmentManagementPage = () => {
         fullWidth
         maxWidth="md"
         PaperProps={{
-          sx: { borderRadius: 3 }
+          sx: { 
+            borderRadius: 3,
+            backgroundColor: 'background.paper',
+            backgroundImage: 'linear-gradient(rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.05))'
+          }
         }}
+        fullScreen={window.innerWidth < 600}
       >
-        <DialogTitle sx={{ fontWeight: 600, pb: 1 }}>
+        <DialogTitle 
+          sx={{ 
+            fontWeight: 600, 
+            pb: 1, 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 1,
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+            px: { xs: 2, sm: 3 },
+            pt: { xs: 2, sm: 2.5 }
+          }}
+        >
+          {dialogMode === 'add' ? 
+            <AddIcon color="primary" fontSize="small" /> : 
+            <EditIcon color="primary" fontSize="small" />
+          }
           {dialogMode === 'add' ? 'Добавить оборудование' : 'Редактировать оборудование'}
         </DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 0.5 }}>
+        <DialogContent sx={{ px: { xs: 2, sm: 3 }, py: { xs: 2, sm: 2.5 } }}>
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              Заполните информацию об оборудовании
+            </Typography>
+          </Box>
+          
+          <Grid container spacing={2} sx={{ mt: 0 }}>
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
@@ -868,32 +920,66 @@ const EquipmentManagementPage = () => {
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                sx={{ 
+                  '& .MuiOutlinedInput-root': { 
+                    borderRadius: 2,
+                    backgroundColor: 'rgba(0, 0, 0, 0.02)'
+                  } 
+                }}
                 required
+                size="small"
+                InputLabelProps={{ shrink: true }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
               <FormControl 
                 fullWidth 
-                sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                sx={{ 
+                  '& .MuiOutlinedInput-root': { 
+                    borderRadius: 2,
+                    backgroundColor: 'rgba(0, 0, 0, 0.02)'
+                  } 
+                }}
                 required
+                size="small"
               >
-                <InputLabel id="category-select-label">Категория</InputLabel>
+                <InputLabel id="category-select-label" shrink>Категория</InputLabel>
                 <Select
                   labelId="category-select-label"
                   name="category_id"
                   value={formData.category_id}
                   label="Категория"
                   onChange={handleChange}
+                  displayEmpty
+                  notched
                 >
+                  <MenuItem value="" disabled>
+                    <em>Выберите категорию</em>
+                  </MenuItem>
                   {categories.filter(cat => cat.is_active).map((category) => (
                     <MenuItem key={category.id} value={category.id}>
-                      {category.name}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {getEquipmentIcon(category.name)}
+                        <Typography>{category.name}</Typography>
+                      </Box>
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
             </Grid>
+            
+            <Grid item xs={12}>
+              <Divider sx={{ my: 1 }}>
+                <Chip 
+                  label="Информация об устройстве" 
+                  size="small" 
+                  color="primary" 
+                  variant="outlined"
+                  sx={{ fontWeight: 500, fontSize: '0.75rem' }}
+                />
+              </Divider>
+            </Grid>
+            
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
@@ -901,7 +987,14 @@ const EquipmentManagementPage = () => {
                 name="model"
                 value={formData.model}
                 onChange={handleChange}
-                sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                sx={{ 
+                  '& .MuiOutlinedInput-root': { 
+                    borderRadius: 2,
+                    backgroundColor: 'rgba(0, 0, 0, 0.02)'
+                  } 
+                }}
+                size="small"
+                InputLabelProps={{ shrink: true }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -911,7 +1004,14 @@ const EquipmentManagementPage = () => {
                 name="serial_number"
                 value={formData.serial_number}
                 onChange={handleChange}
-                sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                sx={{ 
+                  '& .MuiOutlinedInput-root': { 
+                    borderRadius: 2,
+                    backgroundColor: 'rgba(0, 0, 0, 0.02)'
+                  } 
+                }}
+                size="small"
+                InputLabelProps={{ shrink: true }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -921,9 +1021,65 @@ const EquipmentManagementPage = () => {
                 name="inventory_number"
                 value={formData.inventory_number}
                 onChange={handleChange}
-                sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                sx={{ 
+                  '& .MuiOutlinedInput-root': { 
+                    borderRadius: 2,
+                    backgroundColor: 'rgba(0, 0, 0, 0.02)'
+                  } 
+                }}
+                size="small"
+                InputLabelProps={{ shrink: true }}
               />
             </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl 
+                fullWidth 
+                sx={{ 
+                  '& .MuiOutlinedInput-root': { 
+                    borderRadius: 2,
+                    backgroundColor: 'rgba(0, 0, 0, 0.02)'
+                  } 
+                }}
+                required
+                size="small"
+              >
+                <InputLabel id="status-select-label" shrink>Статус</InputLabel>
+                <Select
+                  labelId="status-select-label"
+                  name="status"
+                  value={formData.status}
+                  label="Статус"
+                  onChange={handleChange}
+                  notched
+                >
+                  <MenuItem value="active">
+                    <Chip size="small" color="success" sx={{ mr: 1 }} /> Активно
+                  </MenuItem>
+                  <MenuItem value="inactive">
+                    <Chip size="small" color="default" sx={{ mr: 1 }} /> Неактивно
+                  </MenuItem>
+                  <MenuItem value="repair">
+                    <Chip size="small" color="warning" sx={{ mr: 1 }} /> На ремонте
+                  </MenuItem>
+                  <MenuItem value="decommissioned">
+                    <Chip size="small" color="error" sx={{ mr: 1 }} /> Списано
+                  </MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12}>
+              <Divider sx={{ my: 1 }}>
+                <Chip 
+                  label="Размещение" 
+                  size="small" 
+                  color="primary" 
+                  variant="outlined"
+                  sx={{ fontWeight: 500, fontSize: '0.75rem' }}
+                />
+              </Divider>
+            </Grid>
+            
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
@@ -931,29 +1087,22 @@ const EquipmentManagementPage = () => {
                 name="location"
                 value={formData.location}
                 onChange={handleChange}
-                sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                sx={{ 
+                  '& .MuiOutlinedInput-root': { 
+                    borderRadius: 2,
+                    backgroundColor: 'rgba(0, 0, 0, 0.02)'
+                  } 
+                }}
+                size="small"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <LocationIcon fontSize="small" color="action" />
+                    </InputAdornment>
+                  ),
+                }}
+                InputLabelProps={{ shrink: true }}
               />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl 
-                fullWidth 
-                sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                required
-              >
-                <InputLabel id="status-select-label">Статус</InputLabel>
-                <Select
-                  labelId="status-select-label"
-                  name="status"
-                  value={formData.status}
-                  label="Статус"
-                  onChange={handleChange}
-                >
-                  <MenuItem value="active">Активно</MenuItem>
-                  <MenuItem value="inactive">Неактивно</MenuItem>
-                  <MenuItem value="repair">На ремонте</MenuItem>
-                  <MenuItem value="decommissioned">Списано</MenuItem>
-                </Select>
-              </FormControl>
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
@@ -962,7 +1111,14 @@ const EquipmentManagementPage = () => {
                 name="responsible_person"
                 value={formData.responsible_person}
                 onChange={handleChange}
-                sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                sx={{ 
+                  '& .MuiOutlinedInput-root': { 
+                    borderRadius: 2,
+                    backgroundColor: 'rgba(0, 0, 0, 0.02)'
+                  } 
+                }}
+                size="small"
+                InputLabelProps={{ shrink: true }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -973,27 +1129,60 @@ const EquipmentManagementPage = () => {
                 value={formData.notes}
                 onChange={handleChange}
                 multiline
-                rows={3}
-                sx={{ mb: 1, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                rows={2}
+                sx={{ 
+                  '& .MuiOutlinedInput-root': { 
+                    borderRadius: 2,
+                    backgroundColor: 'rgba(0, 0, 0, 0.02)'
+                  } 
+                }}
+                size="small"
+                InputLabelProps={{ shrink: true }}
               />
             </Grid>
           </Grid>
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 3 }}>
+        <DialogActions sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 2, sm: 3 }, pt: 1, justifyContent: { xs: 'space-between', sm: 'flex-end' } }}>
           <Button 
             onClick={() => setOpenDialog(false)}
             variant="outlined"
-            sx={{ borderRadius: 2, textTransform: 'none' }}
+            sx={{ 
+              borderRadius: 2, 
+              textTransform: 'none',
+              flex: { xs: 1, sm: 'initial' } 
+            }}
+            startIcon={dialogMode === 'add' ? null : <DeleteIcon fontSize="small" />}
+            color={dialogMode === 'add' ? 'inherit' : 'error'}
           >
-            Отмена
+            {dialogMode === 'add' ? 'Отмена' : 'Удалить'}
           </Button>
-          <Button 
-            onClick={handleSave}
-            variant="contained"
-            sx={{ borderRadius: 2, textTransform: 'none' }}
-          >
-            {dialogMode === 'add' ? 'Добавить' : 'Сохранить'}
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            {dialogMode === 'edit' && (
+              <Button 
+                onClick={() => setOpenDialog(false)}
+                sx={{ 
+                  borderRadius: 2, 
+                  textTransform: 'none',
+                  display: { xs: 'none', sm: 'flex' }
+                }}
+              >
+                Отмена
+              </Button>
+            )}
+            <Button 
+              onClick={handleSave}
+              variant="contained"
+              sx={{ 
+                borderRadius: 2, 
+                textTransform: 'none',
+                flex: { xs: 1, sm: 'initial' },
+                minWidth: { xs: '100px', sm: '120px' }
+              }}
+              startIcon={dialogMode === 'add' ? <AddIcon fontSize="small" /> : <EditIcon fontSize="small" />}
+            >
+              {dialogMode === 'add' ? 'Добавить' : 'Сохранить'}
+            </Button>
+          </Box>
         </DialogActions>
       </Dialog>
       

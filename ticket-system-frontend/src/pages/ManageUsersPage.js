@@ -397,9 +397,6 @@ const ManageUsersPage = () => {
   if (user && user.role !== 'admin') {
     return (
       <Container sx={{ py: 4 }}>
-        <Typography variant="h4" gutterBottom>
-          Управление пользователями
-        </Typography>
         <Alert severity="error">
           У вас нет прав для доступа к этой странице. Только администраторы могут управлять пользователями.
         </Alert>
@@ -409,10 +406,6 @@ const ManageUsersPage = () => {
   
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Typography variant="h4" gutterBottom>
-        Управление пользователями
-      </Typography>
-      
       {/* Фильтры и кнопка добавления */}
       <Grid container spacing={2} alignItems="center" sx={{ mb: 3 }}>
         <Grid item xs={12} sm={3}>

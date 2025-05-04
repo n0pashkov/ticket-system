@@ -220,28 +220,17 @@ const ProfilePage = () => {
       p: 2
     }}>
       {/* Заголовок и кнопка назад */}
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        mb: 2,
-        width: '100%'
-      }}>
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <IconButton 
-            color="primary" 
-            onClick={handleBack}
-            sx={{ 
-              mr: 1,
-              backgroundColor: 'rgba(25, 118, 210, 0.08)'
-            }}
-          >
-            <ArrowBackIcon />
-          </IconButton>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>
-            Мой профиль
-          </Typography>
-        </Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+        <IconButton 
+          color="primary" 
+          onClick={handleBack}
+          sx={{ 
+            mr: 1,
+            backgroundColor: 'rgba(25, 118, 210, 0.08)'
+          }}
+        >
+          <ArrowBackIcon />
+        </IconButton>
       </Box>
 
       {/* Основная информация */}

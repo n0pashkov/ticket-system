@@ -101,7 +101,7 @@ const Layout = () => {
   const baseMenuItems = [
     { text: 'Информационная панель', icon: <DashboardIcon />, path: '/' },
     { text: 'Заявки', icon: <ConfirmationNumberIcon />, path: '/tickets' },
-    { text: 'Создать заявку', icon: <AddCircleIcon />, path: '/tickets/create' },
+    { text: 'Создать заявку', icon: <AddCircleIcon />, path: '/tickets/new' },
     { text: 'Профиль', icon: <PersonIcon />, path: '/profile' },
   ];
   
@@ -378,7 +378,7 @@ const Layout = () => {
             {/* Название текущей страницы */}
             {location.pathname === '/' && 'Информационная панель'}
             {location.pathname === '/tickets' && 'Заявки'}
-            {location.pathname === '/tickets/create' && 'Создание заявки'}
+            {location.pathname === '/tickets/new' && 'Создание заявки'}
             {location.pathname === '/profile' && 'Профиль'}
             {location.pathname === '/admin' && 'Панель администратора'}
             {location.pathname === '/admin/users' && 'Управление пользователями'}

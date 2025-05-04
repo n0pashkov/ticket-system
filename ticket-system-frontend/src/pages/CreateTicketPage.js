@@ -270,9 +270,13 @@ const CreateTicketPage = () => {
           >
             <ArrowBackIcon />
           </IconButton>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>
-            Новая заявка
-          </Typography>
+          {/* Заголовок выводится только если мы не на мобильном устройстве, 
+              т.к. на мобильном он уже есть в AppBar */}
+          {!isMobile && (
+            <Typography variant="h5" sx={{ fontWeight: 700 }}>
+              Новая заявка
+            </Typography>
+          )}
         </Box>
       </Box>
 
@@ -287,7 +291,7 @@ const CreateTicketPage = () => {
       )}
 
       <form onSubmit={handleSubmit}>
-        {/* Информационная карточка */}
+        {/* Информационная карточка заменена на более компактную версию */}
         <Card sx={{ 
           mb: 3,
           borderRadius: 4, 
@@ -295,27 +299,12 @@ const CreateTicketPage = () => {
           color: 'white',
           boxShadow: '0 4px 20px rgba(33, 150, 243, 0.3)',
         }}>
-          <CardContent sx={{ p: 2.5 }}>
+          <CardContent sx={{ p: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Avatar 
-                sx={{ 
-                  width: 56, 
-                  height: 56, 
-                  bgcolor: 'white', 
-                  color: '#2196f3',
-                  boxShadow: '0 4px 10px rgba(0,0,0,0.15)'
-                }}
-              >
-                <NoteAddIcon fontSize="large" />
-              </Avatar>
-              <Box sx={{ ml: 2 }}>
-                <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.1rem' }}>
-                  Создание заявки
-                </Typography>
-                <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.95rem' }}>
-                  Опишите вашу проблему или запрос
-                </Typography>
-              </Box>
+              <NoteAddIcon sx={{ mr: 1.5 }} />
+              <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.95rem' }}>
+                Опишите вашу проблему или запрос
+              </Typography>
             </Box>
           </CardContent>
         </Card>
