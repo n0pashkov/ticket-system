@@ -680,7 +680,6 @@ const EquipmentManagementPage = () => {
                     <TableRow key={`equipment-${item.id}`}>
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          {getEquipmentIcon(item.type)}
                           <Typography variant="body2" sx={{ fontWeight: 500 }}>
                             {item.name || "Без названия"}
                           </Typography>
@@ -743,8 +742,7 @@ const EquipmentManagementPage = () => {
                 }}>
                   <CardContent>
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      {getEquipmentIcon(category)}
-                      <Typography variant="h6" sx={{ ml: 1, fontWeight: 600 }}>
+                      <Typography variant="h6" sx={{ fontWeight: 600 }}>
                         {category}
                       </Typography>
                     </Box>
