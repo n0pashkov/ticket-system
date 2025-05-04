@@ -136,16 +136,19 @@ const Layout = () => {
 
   const drawer = (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* Шапка меню с градиентным фоном */}
+      {/* Шапка меню с плоским дизайном */}
       <Box 
         sx={{ 
-          p: 2, 
-          background: 'linear-gradient(120deg, #2196f3 0%, #21cbf3 100%)',
+          p: 2.5, 
+          background: theme => theme.palette.mode === 'dark' 
+            ? 'linear-gradient(to right, #1976d2, #2196f3)' 
+            : 'linear-gradient(to right, #2196f3, #64b5f6)',
           color: 'white',
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h5" fontWeight="bold" component="div">
+        {/* Название системы */}
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2.5 }}>
+          <Typography variant="h6" fontWeight="bold" component="div">
             Система заявок
           </Typography>
           <Badge 
@@ -153,39 +156,66 @@ const Layout = () => {
             badgeContent={3} 
             sx={{ ml: 'auto' }}
           >
-            <IconButton color="inherit" size="small">
-              <NotificationsIcon />
+            <IconButton 
+              color="inherit" 
+              size="small"
+              sx={{ 
+                bgcolor: 'rgba(255, 255, 255, 0.1)', 
+                '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.2)' }
+              }}
+            >
+              <NotificationsIcon fontSize="small" />
             </IconButton>
           </Badge>
         </Box>
         
+        {/* Информация о пользователе */}
         {user && (
-          <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              alignItems: 'center',
+              bgcolor: 'rgba(255, 255, 255, 0.1)',
+              borderRadius: 1,
+              p: 1.5,
+            }}
+          >
             <Avatar 
               sx={{ 
                 bgcolor: 'white', 
                 color: getRoleColor(user.role),
-                width: 44,
-                height: 44,
+                width: 40,
+                height: 40,
                 fontWeight: 'bold',
-                fontSize: '1.1rem'
+                fontSize: '1rem'
               }}
             >
               {getInitials(user.full_name || user.username)}
             </Avatar>
-            <Box sx={{ ml: 2 }}>
-              <Typography variant="subtitle1" fontWeight="bold">
+            
+            <Box sx={{ ml: 1.5, overflow: 'hidden' }}>
+              <Typography 
+                variant="body1" 
+                fontWeight="medium"
+                sx={{ 
+                  whiteSpace: 'nowrap', 
+                  textOverflow: 'ellipsis',
+                  overflow: 'hidden'
+                }}
+              >
                 {user.full_name || user.username}
               </Typography>
+              
               <Chip 
-                label={translateRole(user.role)} 
+                label={translateRole(user.role)}
                 size="small"
                 sx={{ 
-                  bgcolor: 'rgba(255, 255, 255, 0.2)', 
-                  color: 'white',
-                  fontWeight: 500,
+                  height: 20,
                   fontSize: '0.7rem',
-                  height: 22
+                  fontWeight: 500,
+                  bgcolor: 'rgba(255, 255, 255, 0.15)',
+                  color: 'white',
+                  mt: 0.5
                 }}
               />
             </Box>
